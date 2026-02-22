@@ -8,6 +8,6 @@ public record QuizResponseDTO(
     String title,
     String description,
     LocalDateTime createdAt,
-    List<QuestionDTO> questions
+    List<QuestionResponseDTO> questions
 ) {
 }
