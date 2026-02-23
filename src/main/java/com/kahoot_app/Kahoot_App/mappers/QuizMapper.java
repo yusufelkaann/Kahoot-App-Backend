@@ -17,16 +17,38 @@ public class QuizMapper {
     private QuizMapper() {
     }
 
-    // Dto to Entity
-    public static Quiz toEntity(QuizRequestDTO request) {
-        Quiz quiz = new Quiz();
-        quiz.setTitle(request.title());
-        quiz.setDescription(request.description());
+    public static Quiz toEntity(QuizRequestDTO dto) {
 
-        List<Question> questions = request.questions()
+        Quiz quiz = new Quiz();
+        quiz.setTitle(dto.title());
+        quiz.setDescription(dto.description());
+
+        List<Question> questions = dto.questions()
                 .stream()
-                .map(q -> toQuestionEntity(q, quiz))
-                .collect(Collectors.toList());
+                .map(qDto -> {
+
+                    Question question = new Question();
+                    question.setQuestionText(qDto.questionText());
+                    question.setOrderIndex(qDto.orderIndex());              // 🔥 IMPORTANT
+                    question.setPoints(qDto.points());                      // 🔥 IMPORTANT
+                    question.setTimeLimitSeconds(qDto.timeLimitSeconds());  // 🔥 IMPORTANT
+                    question.setQuiz(quiz);
+
+                    List<AnswerOption> options = qDto.answerOptions()
+                            .stream()
+                            .map(aDto -> {
+                                AnswerOption option = new AnswerOption();
+                                option.setText(aDto.text());
+                                option.setIsCorrect(aDto.isCorrect());
+                                option.setQuestion(question);
+                                return option;
+                            })
+                            .toList();
+
+                    question.setOptions(options);
+                    return question;
+                })
+                .toList();
 
         quiz.setQuestions(questions);
 

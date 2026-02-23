@@ -4,6 +4,7 @@ import java.util.List;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 
 public record QuizRequestDTO(
 
@@ -11,7 +12,7 @@ public record QuizRequestDTO(
     String title,
     String description,
 
-    @NotBlank(message = "Quiz must have at least one question")
+    @NotEmpty(message = "Quiz must have at least one question")
     @Valid
     List<QuestionDTO> questions
 ) {
