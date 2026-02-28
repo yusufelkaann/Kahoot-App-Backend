@@ -1,4 +1,4 @@
-package com.kahoot_app.Kahoot_App.dtos;
+package com.kahoot_app.Kahoot_App.quiz.dtos;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

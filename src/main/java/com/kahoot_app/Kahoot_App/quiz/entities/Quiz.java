@@ -1,11 +1,12 @@
-package com.kahoot_app.Kahoot_App.entities;
+package com.kahoot_app.Kahoot_App.quiz.entities;
 
 import java.time.LocalDateTime;
 import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.kahoot_app.Kahoot_App.entities.Question;
+import com.kahoot_app.Kahoot_App.quiz.entities.Question;
+
 import lombok.*;
 
 

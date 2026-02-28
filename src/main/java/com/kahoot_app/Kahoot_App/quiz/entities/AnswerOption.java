@@ -1,4 +1,4 @@
-package com.kahoot_app.Kahoot_App.entities;
+package com.kahoot_app.Kahoot_App.quiz.entities;
 import jakarta.persistence.*;
 import lombok.NoArgsConstructor;
 
