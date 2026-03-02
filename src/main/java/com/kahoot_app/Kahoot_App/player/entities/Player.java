@@ -1,7 +1,7 @@
 package com.kahoot_app.Kahoot_App.player.entities;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
+
 
 import com.kahoot_app.Kahoot_App.room.entities.Room;
 
@@ -11,14 +11,14 @@ import jakarta.persistence.*;
 @Table(name = "players")
 public class Player {
     @Id
-    @GeneratedValue
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(nullable = false)
     private String nickname;
 
     @Column(nullable = false)
-    private Integer score = 0;
+    private int score = 0;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "room_id", nullable = false)
@@ -36,7 +36,7 @@ public class Player {
         this.joinedAt = LocalDateTime.now();
     }
 
-    public UUID getId() { return id; }
+    public Long getId() { return id; }
 
     public String getNickname() { return nickname; }
 
@@ -45,6 +45,10 @@ public class Player {
     public void setScore(Integer score) { this.score = score; }
 
     public Room getRoom() { return room; }
+
+    public void setRoom(Room room) {
+        this.room = room;
+    }
 
     public LocalDateTime getJoinedAt() { return joinedAt; }
 }

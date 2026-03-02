@@ -11,7 +11,7 @@ import com.kahoot_app.Kahoot_App.room.enums.RoomStatus;
 import java.util.List;
 
 
-public interface RoomRepository extends JpaRepository<Room, UUID>{
+public interface RoomRepository extends JpaRepository<Room, Long>{
 
     Optional<Room> findByRoomCode(String roomCode);
 
