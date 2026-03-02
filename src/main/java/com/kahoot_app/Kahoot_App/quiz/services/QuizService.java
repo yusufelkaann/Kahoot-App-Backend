@@ -1,20 +1,20 @@
-package com.kahoot_app.Kahoot_App.services;
+package com.kahoot_app.Kahoot_App.quiz.services;
 
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.kahoot_app.Kahoot_App.dtos.AnswerOptionDTO;
-import com.kahoot_app.Kahoot_App.dtos.QuestionDTO;
-import com.kahoot_app.Kahoot_App.dtos.QuestionResponseDTO;
-import com.kahoot_app.Kahoot_App.dtos.QuizRequestDTO;
-import com.kahoot_app.Kahoot_App.dtos.QuizResponseDTO;
-import com.kahoot_app.Kahoot_App.entities.AnswerOption;
-import com.kahoot_app.Kahoot_App.entities.Question;
-import com.kahoot_app.Kahoot_App.entities.Quiz;
-import com.kahoot_app.Kahoot_App.mappers.QuizMapper;
-import com.kahoot_app.Kahoot_App.repository.QuizRepository;
+import com.kahoot_app.Kahoot_App.quiz.dtos.AnswerOptionDTO;
+import com.kahoot_app.Kahoot_App.quiz.dtos.QuestionDTO;
+import com.kahoot_app.Kahoot_App.quiz.dtos.QuestionResponseDTO;
+import com.kahoot_app.Kahoot_App.quiz.dtos.QuizRequestDTO;
+import com.kahoot_app.Kahoot_App.quiz.dtos.QuizResponseDTO;
+import com.kahoot_app.Kahoot_App.quiz.entities.AnswerOption;
+import com.kahoot_app.Kahoot_App.quiz.entities.Question;
+import com.kahoot_app.Kahoot_App.quiz.entities.Quiz;
+import com.kahoot_app.Kahoot_App.quiz.mappers.QuizMapper;
+import com.kahoot_app.Kahoot_App.quiz.repository.QuizRepository;
 
 @Service
 @Transactional

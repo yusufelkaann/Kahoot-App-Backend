@@ -1,4 +1,4 @@
-package com.kahoot_app.Kahoot_App.dtos;
+package com.kahoot_app.Kahoot_App.quiz.dtos;
 
 import java.time.LocalDateTime;
 import java.util.List;

@@ -1,11 +1,11 @@
-package com.kahoot_app.Kahoot_App.controllers;
+package com.kahoot_app.Kahoot_App.quiz.controllers;
 
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.kahoot_app.Kahoot_App.dtos.QuizRequestDTO;
-import com.kahoot_app.Kahoot_App.dtos.QuizResponseDTO;
-import com.kahoot_app.Kahoot_App.services.QuizService;
+import com.kahoot_app.Kahoot_App.quiz.dtos.QuizRequestDTO;
+import com.kahoot_app.Kahoot_App.quiz.dtos.QuizResponseDTO;
+import com.kahoot_app.Kahoot_App.quiz.services.QuizService;
 
 import jakarta.validation.Valid;
 

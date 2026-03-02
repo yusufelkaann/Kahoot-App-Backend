@@ -1,17 +1,17 @@
-package com.kahoot_app.Kahoot_App.mappers;
+package com.kahoot_app.Kahoot_App.quiz.mappers;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.kahoot_app.Kahoot_App.dtos.AnswerOptionDTO;
-import com.kahoot_app.Kahoot_App.dtos.AnswerOptionResponseDTO;
-import com.kahoot_app.Kahoot_App.dtos.QuestionDTO;
-import com.kahoot_app.Kahoot_App.dtos.QuestionResponseDTO;
-import com.kahoot_app.Kahoot_App.dtos.QuizRequestDTO;
-import com.kahoot_app.Kahoot_App.dtos.QuizResponseDTO;
-import com.kahoot_app.Kahoot_App.entities.AnswerOption;
-import com.kahoot_app.Kahoot_App.entities.Question;
-import com.kahoot_app.Kahoot_App.entities.Quiz;
+import com.kahoot_app.Kahoot_App.quiz.dtos.AnswerOptionDTO;
+import com.kahoot_app.Kahoot_App.quiz.dtos.AnswerOptionResponseDTO;
+import com.kahoot_app.Kahoot_App.quiz.dtos.QuestionDTO;
+import com.kahoot_app.Kahoot_App.quiz.dtos.QuestionResponseDTO;
+import com.kahoot_app.Kahoot_App.quiz.dtos.QuizRequestDTO;
+import com.kahoot_app.Kahoot_App.quiz.dtos.QuizResponseDTO;
+import com.kahoot_app.Kahoot_App.quiz.entities.AnswerOption;
+import com.kahoot_app.Kahoot_App.quiz.entities.Question;
+import com.kahoot_app.Kahoot_App.quiz.entities.Quiz;
 
 public class QuizMapper {
     private QuizMapper() {
@@ -29,9 +29,9 @@ public class QuizMapper {
 
                     Question question = new Question();
                     question.setQuestionText(qDto.questionText());
-                    question.setOrderIndex(qDto.orderIndex());              // 🔥 IMPORTANT
-                    question.setPoints(qDto.points());                      // 🔥 IMPORTANT
-                    question.setTimeLimitSeconds(qDto.timeLimitSeconds());  // 🔥 IMPORTANT
+                    question.setOrderIndex(qDto.orderIndex());              
+                    question.setPoints(qDto.points());                      
+                    question.setTimeLimitSeconds(qDto.timeLimitSeconds());  
                     question.setQuiz(quiz);
 
                     List<AnswerOption> options = qDto.answerOptions()
