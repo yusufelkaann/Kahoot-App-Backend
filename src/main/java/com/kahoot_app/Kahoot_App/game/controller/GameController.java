@@ -59,6 +59,13 @@ public class GameController {
         return RoomMapper.toRoomResponseDTO(room);
     }
 
+    @PostMapping("/{roomCode}/finish")
+    public RoomResponseDTO finishGame(@PathVariable String roomCode) {
+        gameService.finishGame(roomCode);
+        Room room = gameService.getRoomByCode(roomCode);
+        return RoomMapper.toRoomResponseDTO(room);
+    }
+
     @GetMapping("/{roomCode}")
     public RoomResponseDTO getRoom(@PathVariable String roomCode) {
         Room room = gameService.getRoomByCode(roomCode);

@@ -1,6 +1,6 @@
 # Kahoot App
 
-A Spring Boot-based interactive quiz application inspired by Kahoot, allowing users to create, manage, and play quizzes in real-time.
+A Spring Boot-based interactive quiz application inspired by Kahoot, allowing users to create quizzes and host real-time quiz games in rooms.
 
 ## 📋 Table of Contents
 
@@ -19,17 +19,24 @@ A Spring Boot-based interactive quiz application inspired by Kahoot, allowing us
 
 ## 🎯 Overview
 
-Kahoot App is a web-based quiz platform built with Spring Boot that enables users to create interactive quizzes, manage game rooms, and participate in real-time quiz sessions. The application provides a RESTful API for managing quizzes, questions, answer options, players, and game sessions.
+Kahoot App is a web-based quiz platform built with Spring Boot that enables users to:
+- Create quizzes with multiple-choice questions
+- Generate game rooms with unique 6-digit codes
+- Host quiz sessions where players can join using room codes
+- Track player scores and game progress
+- Manage quiz flow with timed questions and points system
 
 ## ✨ Features
 
-- **Quiz Management**: Create, update, and delete quizzes with multiple questions
-- **Question & Answer Options**: Support for multiple-choice questions with customizable answer options
-- **Room Management**: Create and manage game rooms for quiz sessions
-- **Player Management**: Track players and their participation in games
-- **Game Controller**: Handle game flow and session management
-- **PostgreSQL Database**: Persistent storage for all quiz data
-- **RESTful API**: Well-structured REST endpoints for all operations
+- **Quiz Management**: Create quizzes with multiple-choice questions, each with exactly one correct answer
+- **Question Configuration**: Set time limits and points for each question
+- **Room System**: Generate unique 6-digit room codes for game sessions
+- **Player Management**: Players join rooms with nicknames, duplicate nicknames prevented per room
+- **Game Flow**: Start games, track current question, and finish sessions
+- **Quiz Assignment**: Assign quizzes to rooms before starting
+- **Room States**: WAITING, STARTED, and FINISHED status tracking
+- **Score Tracking**: Maintain player scores throughout the game
+- **Validation**: Business rules enforced (single correct answer per question, positive points/time limits)
 
 ## 🛠 Technologies
 
@@ -160,41 +167,68 @@ Kahoot_App/
 
 ## 🔌 API Endpoints
 
-### Quiz Endpoints
-- `GET /api/quizzes` - Get all quizzes
-- `GET /api/quizzes/{id}` - Get quiz by ID
-- `POST /api/quizzes` - Create a new quiz
-- `PUT /api/quizzes/{id}` - Update a quiz
-- `DELETE /api/quizzes/{id}` - Delete a quiz
+### Quiz Endpoints (Base: `/api/v1/quizzes`)
+- `POST /api/v1/quizzes` - Create a new quiz with questions and answer options
+- `GET /api/v1/quizzes` - Get all quizzes
+- `GET /api/v1/quizzes/{id}` - Get quiz by ID
 
-### Game Endpoints
-- `GET /api/games` - Get all games
-- `POST /api/games` - Create a new game session
-- `GET /api/games/{id}` - Get game details
-
-### Player Endpoints
-- `GET /api/players` - Get all players
-- `POST /api/players` - Register a new player
-- `GET /api/players/{id}` - Get player details
-
-### Room Endpoints
-- `GET /api/rooms` - Get all rooms
-- `POST /api/rooms` - Create a new room
-- `GET /api/rooms/{id}` - Get room details
-- `PUT /api/rooms/{id}` - Update room status
+### Room/Game Endpoints (Base: `/api/v1/rooms`)
+- `POST /api/v1/rooms` - Create an empty room (generates 6-digit room code)
+- `POST /api/v1/rooms/{roomCode}/join` - Join a room with nickname
+  - Request body: `{ "nickname": "string" }`
+- `POST /api/v1/rooms/{roomCode}/assign-quiz/{quizId}` - Assign a quiz to the room
+- `POST /api/v1/rooms/{roomCode}/start` - Start the game (sets status to STARTED)
+- `POST /api/v1/rooms/{roomCode}/finish` - Start the game (sets status to FINISHED)
+- `GET /api/v1/rooms/{roomCode}` - Get room details including players and status
 
 ## 🗄 Database Schema
 
-The application uses the following main entities:
+The application uses the following entities:
 
-- **Quiz**: Contains quiz information
-- **Question**: Quiz questions with multiple answer options
-- **AnswerOption**: Possible answers for questions
-- **Player**: Users participating in quizzes
-- **Room**: Game rooms for quiz sessions
-- **Game**: Active game sessions
+### Quiz
+- `id` (Long, PK)
+- `title` (String, required)
+- `description` (String, max 1000 chars)
+- `createdAt` (LocalDateTime)
+- One-to-Many relationship with Questions
 
-The database schema is automatically managed by Hibernate with `ddl-auto=update`.
+### Question
+- `id` (Long, PK)
+- `questionText` (String, required)
+- `timeLimitSeconds` (Integer, required)
+- `points` (Integer, required)
+- `orderIndex` (Integer, required)
+- `quiz_id` (FK to Quiz)
+- One-to-Many relationship with AnswerOptions
+
+### AnswerOption
+- `id` (Long, PK)
+- `text` (String, required)
+- `isCorrect` (Boolean, required)
+- `question_id` (FK to Question)
+
+### Room
+- `id` (Long, PK)
+- `roomCode` (String, unique, 6 digits)
+- `status` (Enum: WAITING, STARTED, FINISHED)
+- `quiz_id` (FK to Quiz, optional)
+- `currentQuestionIndex` (Integer, default 0)
+- `createdAt` (LocalDateTime)
+- One-to-Many relationship with Players
+
+### Player
+- `id` (Long, PK)
+- `nickname` (String, required)
+- `score` (Integer, default 0)
+- `room_id` (FK to Room)
+- `joinedAt` (LocalDateTime)
+
+**Business Rules:**
+- Each question must have exactly one correct answer
+- Points and time limit must be greater than 0
+- Nicknames must be unique within a room
+- Quiz can only be assigned to rooms in WAITING status
+- Games can only start when room has quiz and at least one player
 
 ## 🤝 Contributing
 
