@@ -6,6 +6,7 @@ import java.util.Random;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.kahoot_app.Kahoot_App.player.entities.Player;
 import com.kahoot_app.Kahoot_App.player.repositories.PlayerRepository;
 import com.kahoot_app.Kahoot_App.quiz.entities.Quiz;
 import com.kahoot_app.Kahoot_App.quiz.repository.QuizRepository;
@@ -66,7 +67,7 @@ public class GameService {
 
     // Start game
     @Transactional
-    public void starGame(String roomCode) {
+    public void startGame(String roomCode) {
         Room room = getRoomByCode(roomCode);
 
         if (room.getStatus() != RoomStatus.WAITING) {
@@ -101,8 +102,34 @@ public class GameService {
         room.setStatus(RoomStatus.FINISHED);
     }
 
+    @Transactional
+    public Player joinRoom(String roomCode, String nickname) {
+
+        Room room = roomRepository.findByRoomCode(roomCode)
+                .orElseThrow(() -> new RuntimeException("Room not found"));
+
+        if (room.getStatus() != RoomStatus.WAITING) {
+            throw new IllegalStateException("Game already started");
+        }
+
+        boolean nicknameExists =
+                playerRepository.existsByRoomAndNickname(room, nickname);
+
+        if (nicknameExists) {
+            throw new IllegalStateException("Nickname already taken");
+        }
+
+        Player player = new Player(nickname, room);
+
+        // IMPORTANT: use helper method to keep both sides in sync
+        room.addPlayer(player);
+
+        return playerRepository.save(player);
+    }
+
     // HELPERS
-    private Room getRoomByCode(String roomCode) {
+    @Transactional(readOnly = true)
+    public Room getRoomByCode(String roomCode) {
         return roomRepository.findByRoomCode(roomCode)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
     }

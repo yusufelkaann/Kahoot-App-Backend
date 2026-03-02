@@ -1,6 +1,7 @@
 package com.kahoot_app.Kahoot_App.room.entities;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,10 +35,8 @@ public class Room {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
-    private LocalDateTime startedAt;
-
     @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Player> players;
+    private List<Player> players = new ArrayList<>();
 
     @PrePersist
     public void onCreate() {

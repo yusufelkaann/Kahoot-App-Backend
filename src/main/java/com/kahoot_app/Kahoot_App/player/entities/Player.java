@@ -39,6 +39,10 @@ public class Player {
     public Long getId() { return id; }
 
     public String getNickname() { return nickname; }
+    
+    public void setNickname(String nickname) {
+        this.nickname = nickname;
+    }
 
     public Integer getScore() { return score; }
 

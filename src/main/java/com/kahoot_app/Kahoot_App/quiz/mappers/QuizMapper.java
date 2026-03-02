@@ -29,9 +29,9 @@ public class QuizMapper {
 
                     Question question = new Question();
                     question.setQuestionText(qDto.questionText());
-                    question.setOrderIndex(qDto.orderIndex());              // 🔥 IMPORTANT
-                    question.setPoints(qDto.points());                      // 🔥 IMPORTANT
-                    question.setTimeLimitSeconds(qDto.timeLimitSeconds());  // 🔥 IMPORTANT
+                    question.setOrderIndex(qDto.orderIndex());              
+                    question.setPoints(qDto.points());                      
+                    question.setTimeLimitSeconds(qDto.timeLimitSeconds());  
                     question.setQuiz(quiz);
 
                     List<AnswerOption> options = qDto.answerOptions()
