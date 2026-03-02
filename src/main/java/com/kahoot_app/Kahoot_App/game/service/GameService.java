@@ -3,6 +3,7 @@ package com.kahoot_app.Kahoot_App.game.service;
 import java.time.LocalDateTime;
 import java.util.Random;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,15 +35,30 @@ public class GameService {
     // Create empty room
     @Transactional
     public Room createRoom() {
-        String roomCode = generateUniqueRoomCode();
+        int maxRetries = 5;
+        int attempt = 0;
+        
+        while (attempt < maxRetries) {
+            try {
+                String roomCode = generateRoomCode();
 
-        Room room = new Room();
-        room.setRoomCode(roomCode);
-        room.setStatus(RoomStatus.WAITING);
-        room.setCurrentQuestionIndex(0);
-        room.setCreatedAt(LocalDateTime.now());
+                Room room = new Room();
+                room.setRoomCode(roomCode);
+                room.setStatus(RoomStatus.WAITING);
+                room.setCurrentQuestionIndex(0);
+                room.setCreatedAt(LocalDateTime.now());
 
-        return roomRepository.save(room);
+                return roomRepository.save(room);
+            } catch (DataIntegrityViolationException e) {
+                attempt++;
+                if (attempt >= maxRetries) {
+                    throw new RuntimeException("Failed to generate unique room code after " + maxRetries + " attempts", e);
+                }
+                // Retry with a new code
+            }
+        }
+        
+        throw new RuntimeException("Failed to create room");
     }
 
     // Assign quiz to the room
@@ -135,12 +151,13 @@ public class GameService {
     }
 
 
-    private String generateUniqueRoomCode() {
-        String code;
-        do {
-            int number = 100000 + random.nextInt(900000);
-            code = String.valueOf(number);
-        } while (roomRepository.existsByRoomCode(code));
-        return code;
+    
+    /**
+     * Generates a random 6-digit room code.
+     * Uniqueness is enforced by database constraint with retry logic in createRoom().
+     */
+    private String generateRoomCode() {
+        int number = 100000 + random.nextInt(900000);
+        return String.valueOf(number);
     }
 }

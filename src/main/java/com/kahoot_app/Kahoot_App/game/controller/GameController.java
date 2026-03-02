@@ -9,6 +9,7 @@ import com.kahoot_app.Kahoot_App.room.dtos.RoomResponseDTO;
 import com.kahoot_app.Kahoot_App.room.entities.Room;
 import com.kahoot_app.Kahoot_App.room.mappers.RoomMapper;
 
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,7 +37,7 @@ public class GameController {
     @PostMapping("/{roomCode}/join")
     public RoomResponseDTO joinRoom(
             @PathVariable String roomCode,
-            @RequestBody JoinRoomRequestDTO request
+            @Valid @RequestBody JoinRoomRequestDTO request
     ) {
         gameService.joinRoom(roomCode, request.nickname());
         Room room = gameService.getRoomByCode(roomCode);

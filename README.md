@@ -178,7 +178,7 @@ Kahoot_App/
   - Request body: `{ "nickname": "string" }`
 - `POST /api/v1/rooms/{roomCode}/assign-quiz/{quizId}` - Assign a quiz to the room
 - `POST /api/v1/rooms/{roomCode}/start` - Start the game (sets status to STARTED)
-- `POST /api/v1/rooms/{roomCode}/finish` - Start the game (sets status to FINISHED)
+- `POST /api/v1/rooms/{roomCode}/finish` - Finish the game (sets status to FINISHED)
 - `GET /api/v1/rooms/{roomCode}` - Get room details including players and status
 
 ## 🗄 Database Schema

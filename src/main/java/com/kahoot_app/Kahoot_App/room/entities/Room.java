@@ -3,7 +3,6 @@ package com.kahoot_app.Kahoot_App.room.entities;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 import com.kahoot_app.Kahoot_App.player.entities.Player;
 import com.kahoot_app.Kahoot_App.quiz.entities.Quiz;

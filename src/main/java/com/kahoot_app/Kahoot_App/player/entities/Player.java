@@ -44,9 +44,9 @@ public class Player {
         this.nickname = nickname;
     }
 
-    public Integer getScore() { return score; }
+    public int getScore() { return score; }
 
-    public void setScore(Integer score) { this.score = score; }
+    public void setScore(int score) { this.score = score; }
 
     public Room getRoom() { return room; }
 
