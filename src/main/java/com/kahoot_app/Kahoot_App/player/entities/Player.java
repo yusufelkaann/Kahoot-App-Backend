@@ -25,7 +25,7 @@ public class Player {
     private Room room;
 
     @Column(nullable = false)
-    private LocalDateTime joinedAt;
+    private LocalDateTime joinedAt = LocalDateTime.now();
 
     public Player() {}
 
