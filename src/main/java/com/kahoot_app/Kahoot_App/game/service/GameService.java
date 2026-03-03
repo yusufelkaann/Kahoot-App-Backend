@@ -7,6 +7,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.kahoot_app.Kahoot_App.global.exceptions.*;
 import com.kahoot_app.Kahoot_App.player.entities.Player;
 import com.kahoot_app.Kahoot_App.player.repositories.PlayerRepository;
 import com.kahoot_app.Kahoot_App.quiz.entities.Quiz;
@@ -52,7 +53,7 @@ public class GameService {
             } catch (DataIntegrityViolationException e) {
                 attempt++;
                 if (attempt >= maxRetries) {
-                    throw new RuntimeException("Failed to generate unique room code after " + maxRetries + " attempts", e);
+                    throw new BadRequestException("Failed to generate unique room code");
                 }
                 // Retry with a new code
             }
@@ -69,11 +70,11 @@ public class GameService {
 
         // check room status
         if (room.getStatus() != RoomStatus.WAITING) {
-            throw new IllegalStateException("Cannot assign quiz after game started");
+            throw new ConflictException("Cannot assign quiz after game started");
         }
 
         Quiz quiz = quizRepository.findById(quizId)
-                .orElseThrow(() -> new RuntimeException("Quiz not found"));
+                .orElseThrow(() -> new NotFoundException("Quiz not found"));
         
         room.setQuiz(quiz);
 
@@ -87,19 +88,19 @@ public class GameService {
         Room room = getRoomByCode(roomCode);
 
         if (room.getStatus() != RoomStatus.WAITING) {
-            throw new IllegalStateException("Game already started");
+            throw new ConflictException("Game already started");
         }
 
         if (room.getQuiz() == null) {
-            throw new IllegalStateException("Cannot start game without quiz");
+            throw new ConflictException("Cannot start game without quiz");
         }
 
         if (room.getQuiz().getQuestions().isEmpty()) {
-            throw new IllegalStateException("Quiz has no questions");
+            throw new ConflictException("Quiz has no questions");
         }
 
         if (room.getPlayers() == null || room.getPlayers().isEmpty()) {
-            throw new IllegalStateException("No players in room");
+            throw new ConflictException("No players in room");
         }
 
         room.setStatus(RoomStatus.STARTED);
@@ -112,7 +113,7 @@ public class GameService {
         Room room = getRoomByCode(roomCode);
 
         if (room.getStatus() != RoomStatus.STARTED) {
-            throw new IllegalStateException("Game not started");
+            throw new ConflictException("Game not started");
         }
 
         room.setStatus(RoomStatus.FINISHED);
@@ -122,17 +123,17 @@ public class GameService {
     public Player joinRoom(String roomCode, String nickname) {
 
         Room room = roomRepository.findByRoomCode(roomCode)
-                .orElseThrow(() -> new RuntimeException("Room not found"));
+                .orElseThrow(() -> new NotFoundException("Room not found"));
 
         if (room.getStatus() != RoomStatus.WAITING) {
-            throw new IllegalStateException("Game already started");
+            throw new ConflictException("Game already started");
         }
 
         boolean nicknameExists =
                 playerRepository.existsByRoomAndNickname(room, nickname);
 
         if (nicknameExists) {
-            throw new IllegalStateException("Nickname already taken");
+            throw new ConflictException("Nickname already taken");
         }
 
         Player player = new Player(nickname, room);
@@ -147,7 +148,7 @@ public class GameService {
     @Transactional(readOnly = true)
     public Room getRoomByCode(String roomCode) {
         return roomRepository.findByRoomCode(roomCode)
-                .orElseThrow(() -> new RuntimeException("Room not found"));
+                .orElseThrow(() -> new NotFoundException("Room not found"));
     }
 
 

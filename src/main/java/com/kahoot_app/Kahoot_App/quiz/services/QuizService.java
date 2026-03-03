@@ -5,13 +5,9 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.kahoot_app.Kahoot_App.quiz.dtos.AnswerOptionDTO;
-import com.kahoot_app.Kahoot_App.quiz.dtos.QuestionDTO;
-import com.kahoot_app.Kahoot_App.quiz.dtos.QuestionResponseDTO;
+import com.kahoot_app.Kahoot_App.global.exceptions.*;
 import com.kahoot_app.Kahoot_App.quiz.dtos.QuizRequestDTO;
 import com.kahoot_app.Kahoot_App.quiz.dtos.QuizResponseDTO;
-import com.kahoot_app.Kahoot_App.quiz.entities.AnswerOption;
-import com.kahoot_app.Kahoot_App.quiz.entities.Question;
 import com.kahoot_app.Kahoot_App.quiz.entities.Quiz;
 import com.kahoot_app.Kahoot_App.quiz.mappers.QuizMapper;
 import com.kahoot_app.Kahoot_App.quiz.repository.QuizRepository;
@@ -48,7 +44,7 @@ public class QuizService {
     @Transactional(readOnly = true)
     public QuizResponseDTO getQuizById(Long id) {
         Quiz quiz = quizRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Quiz not found with id" + id));
+                .orElseThrow(() -> new NotFoundException("Quiz not found with id" + id));
         
         return QuizMapper.toResponseDTO(quiz);
     }
@@ -65,19 +61,19 @@ public class QuizService {
                     .count();
 
             if (correctCount != 1) {
-                throw new IllegalArgumentException(
+                throw new ConflictException(
                         "Each question must have exactly one correct answer"
                 );
             }
 
             if (question.points() == null || question.points() <= 0) {
-                throw new IllegalArgumentException(
+                throw new ConflictException(
                         "Question points must be greater than 0"
                 );
             }
 
             if (question.timeLimitSeconds() == null || question.timeLimitSeconds() <= 0) {
-                throw new IllegalArgumentException(
+                throw new ConflictException(
                         "Time limit must be greater than 0"
                 );
             }
