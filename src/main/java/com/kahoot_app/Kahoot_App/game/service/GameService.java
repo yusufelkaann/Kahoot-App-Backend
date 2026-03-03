@@ -53,7 +53,7 @@ public class GameService {
             } catch (DataIntegrityViolationException e) {
                 attempt++;
                 if (attempt >= maxRetries) {
-                    throw new BadRequestException("Failed to generate unique room code");
+                    throw new RuntimeException("Failed to generate unique room code");
                 }
                 // Retry with a new code
             }
@@ -92,15 +92,15 @@ public class GameService {
         }
 
         if (room.getQuiz() == null) {
-            throw new ConflictException("Cannot start game without quiz");
+            throw new BadRequestException("Cannot start game without quiz");
         }
 
         if (room.getQuiz().getQuestions().isEmpty()) {
-            throw new ConflictException("Quiz has no questions");
+            throw new BadRequestException("Quiz has no questions");
         }
 
         if (room.getPlayers() == null || room.getPlayers().isEmpty()) {
-            throw new ConflictException("No players in room");
+            throw new BadRequestException("No players in room");
         }
 
         room.setStatus(RoomStatus.STARTED);

@@ -44,7 +44,7 @@ public class QuizService {
     @Transactional(readOnly = true)
     public QuizResponseDTO getQuizById(Long id) {
         Quiz quiz = quizRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Quiz not found with id" + id));
+                .orElseThrow(() -> new BadRequestException("Quiz not found with id" + id));
         
         return QuizMapper.toResponseDTO(quiz);
     }
@@ -61,19 +61,19 @@ public class QuizService {
                     .count();
 
             if (correctCount != 1) {
-                throw new ConflictException(
+                throw new BadRequestException(
                         "Each question must have exactly one correct answer"
                 );
             }
 
             if (question.points() == null || question.points() <= 0) {
-                throw new ConflictException(
+                throw new BadRequestException(
                         "Question points must be greater than 0"
                 );
             }
 
             if (question.timeLimitSeconds() == null || question.timeLimitSeconds() <= 0) {
-                throw new ConflictException(
+                throw new BadRequestException(
                         "Time limit must be greater than 0"
                 );
             }
