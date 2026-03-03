@@ -1,0 +1,33 @@
+# Ignore files and directories that shouldn't be in Docker image
+target/
+!target/Kahoot_App-*.jar
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+HELP.md
+
+# Logs
+*.log
+
+# Test files
+src/test/
