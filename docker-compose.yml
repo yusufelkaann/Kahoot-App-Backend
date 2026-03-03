@@ -4,9 +4,9 @@ services:
     image: postgres:16-alpine
     container_name: kahoot_postgres
     environment:
-      POSTGRES_DB: quizapp
-      POSTGRES_USER: kahoot_user
-      POSTGRES_PASSWORD: kahoot_password
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -14,7 +14,7 @@ services:
     networks:
       - kahoot-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kahoot_user -d quizapp"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -43,11 +43,11 @@ services:
       dockerfile: Dockerfile
     container_name: kahoot_app
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/quizapp
-      DB_USERNAME: kahoot_user
-      DB_PASSWORD: kahoot_password
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: 6379
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATA_REDIS_HOST: ${SPRING_DATA_REDIS_HOST}
+      SPRING_DATA_REDIS_PORT: ${SPRING_DATA_REDIS_PORT}
     ports:
       - "8080:8080"
     depends_on:
