@@ -121,11 +121,16 @@ public class GameService {
         redisGameStateService.setGameStatus(roomCode, RoomStatus.STARTED);
         redisGameStateService.setCurrentQuestionIndex(roomCode, 0);
 
-        gameTimerService.startQuestionTimer(room, room.getQuiz());
+        // Generate timer token to prevent race conditions
+        String timerToken = redisGameStateService.generateTimerToken(roomCode, 0);
+        gameTimerService.startQuestionTimer(roomCode, room.getQuiz().getId(), 0, timerToken);
 
         room.setCurrentQuestionIndex(0);
     }
 
+    /*
+     Finishes the game and persists the FINISHED status.
+     */
     @Transactional
     public void finishGame(String roomCode) {
         Room room = getRoomByCode(roomCode);
@@ -134,10 +139,11 @@ public class GameService {
             throw new ConflictException("Game not started");
         }
 
-        redisGameStateService.setGameStatus(roomCode, RoomStatus.FINISHED);
-        redisGameStateService.clearRoom(roomCode);
+        // Set status
         room.setStatus(RoomStatus.FINISHED);
+        redisGameStateService.setGameStatus(roomCode, RoomStatus.FINISHED);
         
+        redisGameStateService.clearRoom(roomCode);
     }
 
     @Transactional
@@ -178,7 +184,7 @@ public class GameService {
             throw new BadRequestException("Host cannot answer questions");
         }
 
-        int currentQuestion = redisGameStateService.getCurrentQuestionIndex(room.getRoomCode());
+        int currentQuestion = redisGameStateService.getCurrentQuestionIndexSafe(room.getRoomCode());
         Question question = room.getQuiz().getQuestions().get(currentQuestion);
 
         if (redisGameStateService.hasAnswered(room.getRoomCode(), currentQuestion, player.getId())) {
@@ -196,11 +202,16 @@ public class GameService {
             throw new BadRequestException("Player cannot change the question");
         }
 
-        int index = redisGameStateService.getCurrentQuestionIndex(room.getRoomCode());
+        // Use safe method to handle null from Redis
+        int index = redisGameStateService.getCurrentQuestionIndexSafe(room.getRoomCode());
         checkIfLastQuestion(room, quiz, index);
 
-        redisGameStateService.setCurrentQuestionIndex(room.getRoomCode(), index + 1);
-        gameTimerService.startQuestionTimer(room, quiz);
+        int nextIndex = index + 1;
+        redisGameStateService.setCurrentQuestionIndex(room.getRoomCode(), nextIndex);
+        
+        // Generate new timer token to invalidate any running timer
+        String timerToken = redisGameStateService.generateTimerToken(room.getRoomCode(), nextIndex);
+        gameTimerService.startQuestionTimer(room.getRoomCode(), quiz.getId(), nextIndex, timerToken);
     }
 
     // HELPERS
@@ -227,24 +238,48 @@ public class GameService {
 
             int points = question.getPoints();
 
+            // Update score in Redis for real-time tracking
             redisGameStateService.incrementScore(
                     room.getRoomCode(),
                     player.getId(),
                     points
             );
+            
+            // Also update Player entity
+            player.setScore(player.getScore() + points);
+            playerRepository.save(player);
         }
     }
 
-    public void advanceQuestionAutomatically(Room room, Quiz quiz) {
+    
+    @Transactional
+    public void advanceQuestionAutomaticallyByRoomCode(String roomCode) {
+        Room room = getRoomByCode(roomCode);
         
-        int index = redisGameStateService.getCurrentQuestionIndex(room.getRoomCode());
+        // Check if game is still running
+        if (room.getStatus() != RoomStatus.STARTED) {
+            return; // Game ended, don't advance
+        }
+        
+        Quiz quiz = room.getQuiz();
+        if (quiz == null) {
+            return; // No quiz assigned
+        }
+        
+        
+        int index = redisGameStateService.getCurrentQuestionIndexSafe(roomCode);
+        
         checkIfLastQuestion(room, quiz, index);
-        redisGameStateService.setCurrentQuestionIndex(room.getRoomCode(), index + 1);
-
-        gameTimerService.startQuestionTimer(room, quiz);
+        
+        int nextIndex = index + 1;
+        redisGameStateService.setCurrentQuestionIndex(roomCode, nextIndex);
+        
+        // Generate new timer token for the next question
+        String timerToken = redisGameStateService.generateTimerToken(roomCode, nextIndex);
+        gameTimerService.startQuestionTimer(roomCode, quiz.getId(), nextIndex, timerToken);
     }
 
-    public void checkIfLastQuestion(Room room, Quiz quiz,int index) {
+    public void checkIfLastQuestion(Room room, Quiz quiz, int index) {
         
         if (index + 1 >= quiz.getQuestions().size()) {
             finishGame(room.getRoomCode());

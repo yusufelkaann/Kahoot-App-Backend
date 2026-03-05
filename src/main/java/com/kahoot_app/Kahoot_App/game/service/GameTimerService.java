@@ -3,36 +3,48 @@ package com.kahoot_app.Kahoot_App.game.service;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.kahoot_app.Kahoot_App.quiz.entities.Question;
 import com.kahoot_app.Kahoot_App.quiz.entities.Quiz;
+import com.kahoot_app.Kahoot_App.quiz.repository.QuizRepository;
 import com.kahoot_app.Kahoot_App.redis.service.RedisGameStateService;
-import com.kahoot_app.Kahoot_App.room.entities.Room;
 
 /**
  * Separate service to handle async timer operations.
+ * This is necessary because @Async does not work with self-invocation within the same class.
  */
 @Service
 public class GameTimerService {
     
     private final RedisGameStateService redisGameStateService;
+    private final QuizRepository quizRepository;
     private final GameService gameService;
 
-    public GameTimerService(RedisGameStateService redisGameStateService, @Lazy GameService gameService) {
+    public GameTimerService(
+            RedisGameStateService redisGameStateService,
+            QuizRepository quizRepository,
+            @Lazy GameService gameService) {
         this.redisGameStateService = redisGameStateService;
+        this.quizRepository = quizRepository;
         this.gameService = gameService;
     }
 
+    
     @Async
-    public void startQuestionTimer(Room room, Quiz quiz) {
+    public void startQuestionTimer(String roomCode, Long quizId, int expectedQuestionIndex, String timerToken) {
 
-        int questionIndex = redisGameStateService.getCurrentQuestionIndex(room.getRoomCode());
+        // Get question details in a transactional context
+        QuestionTimerInfo timerInfo = getQuestionTimerInfo(quizId, expectedQuestionIndex);
+        
+        if (timerInfo == null) {
+            // Quiz or question not found, abort timer
+            return;
+        }
 
-        Question question = quiz.getQuestions().get(questionIndex);
+        int timeLimit = timerInfo.timeLimitSeconds();
 
-        int timeLimit = question.getTimeLimitSeconds();
-
-        redisGameStateService.startQuestionTimer(room.getRoomCode(), timeLimit);
+        redisGameStateService.startQuestionTimer(roomCode, timeLimit);
 
         try {
             Thread.sleep(timeLimit * 1000L);
@@ -41,7 +53,29 @@ public class GameTimerService {
             return; // Don't advance question if timer was interrupted
         }
 
-        // advance question after timer ends
-        gameService.advanceQuestionAutomatically(room, quiz);
+        // Verify timer token 
+        if (!redisGameStateService.isTimerTokenValid(roomCode, timerToken)) {
+            return; 
+        }
+
+        // Advance question after timer ends
+        gameService.advanceQuestionAutomaticallyByRoomCode(roomCode);
     }
+
+
+    @Transactional(readOnly = true)
+    public QuestionTimerInfo getQuestionTimerInfo(Long quizId, int questionIndex) {
+        Quiz quiz = quizRepository.findById(quizId).orElse(null);
+        if (quiz == null || quiz.getQuestions().size() <= questionIndex) {
+            return null;
+        }
+        
+        Question question = quiz.getQuestions().get(questionIndex);
+        return new QuestionTimerInfo(question.getTimeLimitSeconds());
+    }
+
+    /**
+     * Record class to hold question timer information.
+     */
+    private record QuestionTimerInfo(int timeLimitSeconds) {}
 }

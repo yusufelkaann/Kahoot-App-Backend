@@ -61,7 +61,7 @@ public class Player {
 
     public PlayerRole getRole() { return role; }
 
-    public void setPlayerRole(PlayerRole role) {
+    public void setRole(PlayerRole role) {
         this.role = role;
     }
 

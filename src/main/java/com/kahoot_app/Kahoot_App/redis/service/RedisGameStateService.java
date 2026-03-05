@@ -33,6 +33,10 @@ public class RedisGameStateService {
         return "room:" + roomCode + ":timer";
     }
 
+    private String timerTokenKey(String roomCode) {
+        return "room:" + roomCode + ":timerToken";
+    }
+
 
     // Room state
     public void setGameStatus(String roomCode, RoomStatus status) {
@@ -51,6 +55,12 @@ public class RedisGameStateService {
     public Integer getCurrentQuestionIndex(String roomCode) {
         Object val = redisTemplate.opsForHash().get(roomKey(roomCode), "currentQuestionIndex");
         return val != null ? Integer.parseInt(val.toString()) : null;
+    }
+
+    
+    public int getCurrentQuestionIndexSafe(String roomCode) {
+        Integer index = getCurrentQuestionIndex(roomCode);
+        return index != null ? index : 0;
     }
 
     // Scores
@@ -95,22 +105,47 @@ public class RedisGameStateService {
         return redisTemplate.hasKey(timerKey(roomCode));
     }
 
+    
+    public String generateTimerToken(String roomCode, int questionIndex) {
+        String token = questionIndex + ":" + System.currentTimeMillis();
+        redisTemplate.opsForValue().set(timerTokenKey(roomCode), token);
+        return token;
+    }
+
+    
+    public boolean isTimerTokenValid(String roomCode, String token) {
+        Object currentToken = redisTemplate.opsForValue().get(timerTokenKey(roomCode));
+        return currentToken != null && currentToken.toString().equals(token);
+    }
+
     // Cleanup
+    
     public void clearRoom(String roomCode) {
-        // Delete room hash and score hash
-        redisTemplate.delete(roomKey(roomCode));
+        // Delete score hash (room hash is kept for status persistence)
         redisTemplate.delete(scoreKey(roomCode));
         
-        // Delete timer key
+        // Delete timer key and timer token
         redisTemplate.delete(timerKey(roomCode));
+        redisTemplate.delete(timerTokenKey(roomCode));
         
-        // Delete all answer hashes for this room using pattern matching
+        // Delete all answer hashes for this room using SCAN (non-blocking alternative to KEYS)
         // Pattern: room:<roomCode>:answers:*
         String answerPattern = "room:" + roomCode + ":answers:*";
-        var keys = redisTemplate.keys(answerPattern);
-        if (keys != null && !keys.isEmpty()) {
-            redisTemplate.delete(keys);
+        try (var cursor = redisTemplate.scan(
+                org.springframework.data.redis.core.ScanOptions.scanOptions()
+                        .match(answerPattern)
+                        .count(100)
+                        .build()
+        )) {
+            while (cursor.hasNext()) {
+                redisTemplate.delete(cursor.next());
+            }
         }
+    }
+    
+    public void deleteRoomKey(String roomCode) {
+        // Separate method to delete room hash when truly done
+        redisTemplate.delete(roomKey(roomCode));
     }
 
 }
