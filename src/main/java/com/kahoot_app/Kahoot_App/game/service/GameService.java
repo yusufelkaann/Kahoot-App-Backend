@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.kahoot_app.Kahoot_App.global.exceptions.*;
 import com.kahoot_app.Kahoot_App.player.entities.Player;
+import com.kahoot_app.Kahoot_App.player.enums.PlayerRole;
 import com.kahoot_app.Kahoot_App.player.repositories.PlayerRepository;
 import com.kahoot_app.Kahoot_App.quiz.entities.AnswerOption;
 import com.kahoot_app.Kahoot_App.quiz.entities.Question;
@@ -56,6 +57,9 @@ public class GameService {
                 room.setStatus(RoomStatus.WAITING);
                 room.setCurrentQuestionIndex(0);
                 room.setCreatedAt(LocalDateTime.now());
+
+                Player hostPlayer = new Player(roomCode, room, PlayerRole.HOST);
+                playerRepository.save(hostPlayer);
 
                 return roomRepository.save(room);
             } catch (DataIntegrityViolationException e) {
@@ -138,7 +142,7 @@ public class GameService {
         }
 
         // advance question after timer ends
-        advanceQuestion(room, quiz);
+        advanceQuestionAutomatically(room, quiz);
     }
 
     @Transactional
@@ -172,11 +176,10 @@ public class GameService {
             throw new ConflictException("Nickname already taken");
         }
 
-        Player player = new Player(nickname, room);
+        Player player = new Player(nickname, room, PlayerRole.PLAYER);
 
         
         room.addPlayer(player);
-        playerRepository.save(player);
         redisGameStateService.initializeScore(roomCode, player.getId());
 
         return playerRepository.save(player);
@@ -189,6 +192,10 @@ public class GameService {
             throw new BadRequestException("Game has not started yet");
         }
 
+        if (player.getRole() == PlayerRole.HOST) {
+            throw new BadRequestException("Host cannot answer questions");
+        }
+
         int currentQuestion = redisGameStateService.getCurrentQuestionIndex(room.getRoomCode());
         Question question = room.getQuiz().getQuestions().get(currentQuestion);
 
@@ -199,6 +206,19 @@ public class GameService {
         redisGameStateService.saveAnswer(room.getRoomCode(), currentQuestion, player.getId(), answerOptionID);
 
         calculateAndApplyScore(room, player, question, answerOptionID);
+    }
+
+    @Transactional 
+    public void advanceQuestionManually(Room room, Player player, Quiz quiz) {
+        if (player.getRole() != PlayerRole.HOST) {
+            throw new BadRequestException("Player cannot change the question");
+        }
+
+        int index = redisGameStateService.getCurrentQuestionIndex(room.getRoomCode());
+        checkIfLastQuestion(room, quiz, index);
+
+        redisGameStateService.setCurrentQuestionIndex(room.getRoomCode(), index + 1);
+        startQuestionTimer(room, quiz);
     }
 
     // HELPERS
@@ -233,18 +253,22 @@ public class GameService {
         }
     }
 
-    public void advanceQuestion(Room room, Quiz quiz) {
+    public void advanceQuestionAutomatically(Room room, Quiz quiz) {
+        
         int index = redisGameStateService.getCurrentQuestionIndex(room.getRoomCode());
-
-        if (index + 1 >= quiz.getQuestions().size()) {
-            finishGame(room.getRoomCode());
-            return;
-        }
-
+        checkIfLastQuestion(room, quiz, index);
         redisGameStateService.setCurrentQuestionIndex(room.getRoomCode(), index + 1);
 
         startQuestionTimer(room, quiz);
     }
+
+    public void checkIfLastQuestion(Room room, Quiz quiz,int index) {
+        
+        if (index + 1 >= quiz.getQuestions().size()) {
+            finishGame(room.getRoomCode());
+            return;
+        }
+    } 
 
     
     /**

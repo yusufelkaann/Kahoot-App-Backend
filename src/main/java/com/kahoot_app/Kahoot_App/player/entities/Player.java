@@ -2,7 +2,7 @@ package com.kahoot_app.Kahoot_App.player.entities;
 
 import java.time.LocalDateTime;
 
-
+import com.kahoot_app.Kahoot_App.player.enums.PlayerRole;
 import com.kahoot_app.Kahoot_App.room.entities.Room;
 
 import jakarta.persistence.*;
@@ -24,15 +24,20 @@ public class Player {
     @JoinColumn(name = "room_id", nullable = false)
     private Room room;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PlayerRole role;
+
     @Column(nullable = false)
     private LocalDateTime joinedAt = LocalDateTime.now();
 
     public Player() {}
 
-    public Player(String nickname, Room room) {
+    public Player(String nickname, Room room, PlayerRole role) {
         this.nickname = nickname;
         this.room = room;
         this.score = 0;
+        this.role = role;
         this.joinedAt = LocalDateTime.now();
     }
 
@@ -53,6 +58,14 @@ public class Player {
     public void setRoom(Room room) {
         this.room = room;
     }
+
+    public PlayerRole getRole() { return role; }
+
+    public void setPlayerRole(PlayerRole role) {
+        this.role = role;
+    }
+
+
 
     public LocalDateTime getJoinedAt() { return joinedAt; }
 }
