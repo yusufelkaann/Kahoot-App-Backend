@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 import java.util.Random;
 
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,17 +27,20 @@ public class GameService {
     private final PlayerRepository playerRepository;
 
     private final RedisGameStateService redisGameStateService;
+    private final GameTimerService gameTimerService;
 
     private final Random random = new Random();
 
     public GameService(RoomRepository roomRepository, 
         QuizRepository quizRepository,
         PlayerRepository playerRepository,
-        RedisGameStateService redisGameStateService) {
+        RedisGameStateService redisGameStateService,
+        GameTimerService gameTimerService) {
         this.roomRepository = roomRepository;
         this.quizRepository = quizRepository;
         this.playerRepository = playerRepository;
         this.redisGameStateService = redisGameStateService;
+        this.gameTimerService = gameTimerService;
     }
 
 
@@ -59,7 +61,7 @@ public class GameService {
                 room.setCreatedAt(LocalDateTime.now());
 
                 Player hostPlayer = new Player(roomCode, room, PlayerRole.HOST);
-                playerRepository.save(hostPlayer);
+                room.addPlayer(hostPlayer);
 
                 return roomRepository.save(room);
             } catch (DataIntegrityViolationException e) {
@@ -119,30 +121,9 @@ public class GameService {
         redisGameStateService.setGameStatus(roomCode, RoomStatus.STARTED);
         redisGameStateService.setCurrentQuestionIndex(roomCode, 0);
 
-        startQuestionTimer(room, room.getQuiz());
+        gameTimerService.startQuestionTimer(room, room.getQuiz());
 
         room.setCurrentQuestionIndex(0);
-    }
-
-    @Async
-    public void startQuestionTimer(Room room, Quiz quiz) {
-
-        int questionIndex = redisGameStateService.getCurrentQuestionIndex(room.getRoomCode());
-
-        Question question = quiz.getQuestions().get(questionIndex);
-
-        int timeLimit = question.getTimeLimitSeconds();
-
-        redisGameStateService.startQuestionTimer(room.getRoomCode(), timeLimit);
-
-        try {
-            Thread.sleep(timeLimit * 1000L);
-        } catch (InterruptedException e) {
-            
-        }
-
-        // advance question after timer ends
-        advanceQuestionAutomatically(room, quiz);
     }
 
     @Transactional
@@ -180,9 +161,10 @@ public class GameService {
 
         
         room.addPlayer(player);
-        redisGameStateService.initializeScore(roomCode, player.getId());
+        Player savedPlayer = playerRepository.save(player);
+        redisGameStateService.initializeScore(roomCode, savedPlayer.getId());
 
-        return playerRepository.save(player);
+        return savedPlayer;
     }
 
     @Transactional
@@ -218,7 +200,7 @@ public class GameService {
         checkIfLastQuestion(room, quiz, index);
 
         redisGameStateService.setCurrentQuestionIndex(room.getRoomCode(), index + 1);
-        startQuestionTimer(room, quiz);
+        gameTimerService.startQuestionTimer(room, quiz);
     }
 
     // HELPERS
@@ -259,7 +241,7 @@ public class GameService {
         checkIfLastQuestion(room, quiz, index);
         redisGameStateService.setCurrentQuestionIndex(room.getRoomCode(), index + 1);
 
-        startQuestionTimer(room, quiz);
+        gameTimerService.startQuestionTimer(room, quiz);
     }
 
     public void checkIfLastQuestion(Room room, Quiz quiz,int index) {

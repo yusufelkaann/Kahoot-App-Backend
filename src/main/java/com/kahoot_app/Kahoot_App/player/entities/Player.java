@@ -25,7 +25,7 @@ public class Player {
     private Room room;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column()
     private PlayerRole role;
 
     @Column(nullable = false)

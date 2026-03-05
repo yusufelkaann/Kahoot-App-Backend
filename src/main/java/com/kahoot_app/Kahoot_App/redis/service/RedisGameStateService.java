@@ -29,6 +29,10 @@ public class RedisGameStateService {
         return "room:" + roomCode + ":answers:" + questionIndex;
     }
 
+    private String timerKey(String roomCode) {
+        return "room:" + roomCode + ":timer";
+    }
+
 
     // Room state
     public void setGameStatus(String roomCode, RoomStatus status) {
@@ -80,7 +84,7 @@ public class RedisGameStateService {
     // Timer
     public void startQuestionTimer(String roomCode, int seconds) {
         redisTemplate.opsForValue().set(
-            "room:" + roomCode + ":timer",
+            timerKey(roomCode),
             "running",
             seconds,
             TimeUnit.SECONDS
@@ -88,13 +92,25 @@ public class RedisGameStateService {
     }
 
     public boolean isTimerRunning(String roomCode) {
-        return redisTemplate.hasKey("room:" + roomCode + ":timer");
+        return redisTemplate.hasKey(timerKey(roomCode));
     }
 
     // Cleanup
     public void clearRoom(String roomCode) {
+        // Delete room hash and score hash
         redisTemplate.delete(roomKey(roomCode));
         redisTemplate.delete(scoreKey(roomCode));
+        
+        // Delete timer key
+        redisTemplate.delete(timerKey(roomCode));
+        
+        // Delete all answer hashes for this room using pattern matching
+        // Pattern: room:<roomCode>:answers:*
+        String answerPattern = "room:" + roomCode + ":answers:*";
+        var keys = redisTemplate.keys(answerPattern);
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
     }
 
 }
