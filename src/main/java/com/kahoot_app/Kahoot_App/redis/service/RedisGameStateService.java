@@ -2,6 +2,8 @@ package com.kahoot_app.Kahoot_App.redis.service;
 
 import com.kahoot_app.Kahoot_App.room.enums.RoomStatus;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.data.redis.core.RedisTemplate;
@@ -74,7 +76,24 @@ public class RedisGameStateService {
 
     public Integer getScore(String roomCode, Long playerId) {
         Object val = redisTemplate.opsForHash().get(scoreKey(roomCode), playerId.toString());
-        return val != null ? Integer.parseInt(val.toString()) : 0;
+        return val != null ? Integer.parseInt(val.toString()) : null;
+    }
+
+    public Map<Long, Integer> getAllScores(String roomCode) {
+        Map<Object, Object> rawScores = redisTemplate.opsForHash().entries(scoreKey(roomCode));
+        Map<Long, Integer> scores = new HashMap<>();
+        
+        for (Map.Entry<Object, Object> entry : rawScores.entrySet()) {
+            try {
+                Long playerId = Long.parseLong(entry.getKey().toString());
+                Integer score = Integer.parseInt(entry.getValue().toString());
+                scores.put(playerId, score);
+            } catch (NumberFormatException e) {
+                // Skip invalid entries
+            }
+        }
+        
+        return scores;
     }
 
 

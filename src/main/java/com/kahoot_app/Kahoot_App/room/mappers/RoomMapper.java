@@ -1,5 +1,6 @@
 package com.kahoot_app.Kahoot_App.room.mappers;
 
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.kahoot_app.Kahoot_App.player.dtos.PlayerResponseDTO;
@@ -12,9 +13,12 @@ import com.kahoot_app.Kahoot_App.room.entities.Room;
 public class RoomMapper {
     // entity to DTO
     public static RoomResponseDTO toRoomResponseDTO(Room room, RedisGameStateService redisService) {
+        // Fetch all scores in one Redis call
+        Map<Long, Integer> allScores = redisService.getAllScores(room.getRoomCode());
+        
         var players = room.getPlayers()
                         .stream()
-                        .map(player -> toPlayerResponseDTO(player, room.getRoomCode(), redisService))
+                        .map(player -> toPlayerResponseDTO(player, allScores))
                         .collect(Collectors.toList());
         
         return new RoomResponseDTO(
@@ -29,10 +33,9 @@ public class RoomMapper {
                           
     }
 
-    public static PlayerResponseDTO toPlayerResponseDTO(Player player, String roomCode, RedisGameStateService redisService) {
-        // Fetch live score from Redis if available, fallback to Player entity score
-        Integer redisScore = redisService.getScore(roomCode, player.getId());
-        int score = (redisScore != null) ? redisScore : player.getScore();
+    public static PlayerResponseDTO toPlayerResponseDTO(Player player, Map<Long, Integer> scoreMap) {
+        // Fetch score from the pre-loaded map, fallback to Player entity score
+        Integer score = scoreMap.getOrDefault(player.getId(), player.getScore());
         
         return new PlayerResponseDTO(
                 player.getId(),

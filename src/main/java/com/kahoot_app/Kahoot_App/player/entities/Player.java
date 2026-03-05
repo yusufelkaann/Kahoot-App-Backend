@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import com.kahoot_app.Kahoot_App.player.enums.PlayerRole;
 import com.kahoot_app.Kahoot_App.room.entities.Room;
+import com.kahoot_app.Kahoot_App.room.enums.RoomStatus;
 
 import jakarta.persistence.*;
 
@@ -30,6 +31,13 @@ public class Player {
 
     @Column(nullable = false)
     private LocalDateTime joinedAt = LocalDateTime.now();
+
+    @PrePersist
+    public void onCreate() {
+        if (this.role == null) {
+            this.role = PlayerRole.PLAYER;
+        }
+    }
 
     public Player() {}
 
