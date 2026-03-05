@@ -121,9 +121,13 @@ public class GameService {
         redisGameStateService.setGameStatus(roomCode, RoomStatus.STARTED);
         redisGameStateService.setCurrentQuestionIndex(roomCode, 0);
 
+        // Get next question's time limit
+        Question firstQuestion = room.getQuiz().getQuestions().get(0);
+        int timeLimitSeconds = firstQuestion.getTimeLimitSeconds();
+
         // Generate timer token to prevent race conditions
         String timerToken = redisGameStateService.generateTimerToken(roomCode, 0);
-        gameTimerService.startQuestionTimer(roomCode, room.getQuiz().getId(), 0, timerToken);
+        gameTimerService.startQuestionTimer(roomCode, 0, timerToken,timeLimitSeconds);
 
         room.setCurrentQuestionIndex(0);
     }
@@ -204,14 +208,20 @@ public class GameService {
 
         // Use safe method to handle null from Redis
         int index = redisGameStateService.getCurrentQuestionIndexSafe(room.getRoomCode());
-        checkIfLastQuestion(room, quiz, index);
+        if (isLastQuestion(room, quiz, index)) {
+            finishGame(room.getRoomCode());
+            return;
+        };
 
         int nextIndex = index + 1;
+        // Get next question's time limit
+        Question nextQuestion = quiz.getQuestions().get(nextIndex);
+        int timeLimitSeconds = nextQuestion.getTimeLimitSeconds();
         redisGameStateService.setCurrentQuestionIndex(room.getRoomCode(), nextIndex);
         
         // Generate new timer token to invalidate any running timer
         String timerToken = redisGameStateService.generateTimerToken(room.getRoomCode(), nextIndex);
-        gameTimerService.startQuestionTimer(room.getRoomCode(), quiz.getId(), nextIndex, timerToken);
+        gameTimerService.startQuestionTimer(room.getRoomCode(), nextIndex, timerToken, timeLimitSeconds);
     }
 
     // HELPERS
@@ -269,22 +279,29 @@ public class GameService {
         
         int index = redisGameStateService.getCurrentQuestionIndexSafe(roomCode);
         
-        checkIfLastQuestion(room, quiz, index);
+        if (isLastQuestion(room, quiz, index)) {
+            finishGame(room.getRoomCode());
+            return;
+        };
         
         int nextIndex = index + 1;
+        // Get next question's time limit
+        Question nextQuestion = quiz.getQuestions().get(nextIndex);
+        int timeLimitSeconds = nextQuestion.getTimeLimitSeconds();
         redisGameStateService.setCurrentQuestionIndex(roomCode, nextIndex);
         
         // Generate new timer token for the next question
         String timerToken = redisGameStateService.generateTimerToken(roomCode, nextIndex);
-        gameTimerService.startQuestionTimer(roomCode, quiz.getId(), nextIndex, timerToken);
+        gameTimerService.startQuestionTimer(roomCode,nextIndex, timerToken, timeLimitSeconds);
     }
 
-    public void checkIfLastQuestion(Room room, Quiz quiz, int index) {
+    public boolean isLastQuestion(Room room, Quiz quiz, int index) {
         
         if (index + 1 >= quiz.getQuestions().size()) {
-            finishGame(room.getRoomCode());
-            return;
+            return true;
         }
+
+        return false;
     } 
 
     

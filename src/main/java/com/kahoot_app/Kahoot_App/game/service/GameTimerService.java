@@ -32,22 +32,16 @@ public class GameTimerService {
 
     
     @Async
-    public void startQuestionTimer(String roomCode, Long quizId, int expectedQuestionIndex, String timerToken) {
+    public void startQuestionTimer(String roomCode, int expectedQuestionIndex, String timerToken, int timeLimitSeconds) {
 
-        // Get question details in a transactional context
-        QuestionTimerInfo timerInfo = getQuestionTimerInfo(quizId, expectedQuestionIndex);
         
-        if (timerInfo == null) {
-            // Quiz or question not found, abort timer
-            return;
-        }
 
-        int timeLimit = timerInfo.timeLimitSeconds();
+       
 
-        redisGameStateService.startQuestionTimer(roomCode, timeLimit);
+        redisGameStateService.startQuestionTimer(roomCode, timeLimitSeconds);
 
         try {
-            Thread.sleep(timeLimit * 1000L);
+            Thread.sleep(timeLimitSeconds * 1000L);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return; // Don't advance question if timer was interrupted
@@ -62,20 +56,4 @@ public class GameTimerService {
         gameService.advanceQuestionAutomaticallyByRoomCode(roomCode);
     }
 
-
-    @Transactional(readOnly = true)
-    public QuestionTimerInfo getQuestionTimerInfo(Long quizId, int questionIndex) {
-        Quiz quiz = quizRepository.findById(quizId).orElse(null);
-        if (quiz == null || quiz.getQuestions().size() <= questionIndex) {
-            return null;
-        }
-        
-        Question question = quiz.getQuestions().get(questionIndex);
-        return new QuestionTimerInfo(question.getTimeLimitSeconds());
-    }
-
-    /**
-     * Record class to hold question timer information.
-     */
-    private record QuestionTimerInfo(int timeLimitSeconds) {}
 }
