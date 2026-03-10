@@ -1,11 +1,20 @@
 package com.kahoot_app.Kahoot_App.controller;
 
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.kahoot_app.Kahoot_App.dto.AnswerOptionDTO;
+import com.kahoot_app.Kahoot_App.dto.CreateRoomRequesDTO;
 import com.kahoot_app.Kahoot_App.dto.JoinRoomRequestDTO;
 import com.kahoot_app.Kahoot_App.dto.RoomResponseDTO;
+import com.kahoot_app.Kahoot_App.dto.SubmitAnswerResponseDTO;
+import com.kahoot_app.Kahoot_App.entity.Player;
+import com.kahoot_app.Kahoot_App.entity.Question;
 import com.kahoot_app.Kahoot_App.entity.Room;
+import com.kahoot_app.Kahoot_App.enums.RoomStatus;
+import com.kahoot_app.Kahoot_App.mappers.AnswerMapper;
+import com.kahoot_app.Kahoot_App.mappers.QuestionMapper;
 import com.kahoot_app.Kahoot_App.mappers.RoomMapper;
 import com.kahoot_app.Kahoot_App.service.GameService;
 import com.kahoot_app.Kahoot_App.service.RedisGameStateService;
@@ -17,6 +26,8 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,9 +52,10 @@ public class GameController {
 
     // create empty room
     @PostMapping
-    public RoomResponseDTO createRoom() {
-        Room room = gameService.createRoom();
-        return RoomMapper.toRoomResponseDTO(room, redisGameStateService);
+    public ResponseEntity<RoomResponseDTO> createRoom(@RequestBody CreateRoomRequesDTO request) {
+        Room room = gameService.createRoom(request.hostNickname());
+        RoomResponseDTO response = RoomMapper.toRoomResponseDTO(room, redisGameStateService);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     // join room
@@ -73,6 +85,32 @@ public class GameController {
         return RoomMapper.toRoomResponseDTO(room, redisGameStateService);
     }
 
+    @PostMapping("/{roomCode}/submit-answer")
+    public SubmitAnswerResponseDTO submitAnswer(
+            @PathVariable String roomCode,
+            @RequestParam Long playerId,
+            @RequestParam Long answerOptionId
+    ) {
+        gameService.submitAnswer(roomCode, playerId, answerOptionId);
+
+        int currentScore = redisGameStateService.getScore(roomCode, playerId);
+
+        return AnswerMapper.toSubmitAnswerResponse(playerId, currentScore);
+        
+    }
+
+    @PostMapping("/{roomCode}/advance")
+    public ResponseEntity<?> advanceQuestion(
+            @PathVariable String roomCode,
+            @RequestParam Long hostPlayerId
+    ) {
+        
+        gameService.advanceQuestionManually(roomCode, hostPlayerId);
+        
+        Room updatedRoom = gameService.getRoomByCode(roomCode);
+        return ResponseEntity.ok(RoomMapper.toRoomResponseDTO(updatedRoom, redisGameStateService));
+    }
+
     @PostMapping("/{roomCode}/finish")
     public RoomResponseDTO finishGame(@PathVariable String roomCode) {
         gameService.finishGame(roomCode);
@@ -84,6 +122,22 @@ public class GameController {
     public RoomResponseDTO getRoom(@PathVariable String roomCode) {
         Room room = gameService.getRoomByCode(roomCode);
         return RoomMapper.toRoomResponseDTO(room, redisGameStateService);
+    }
+
+    @GetMapping("/{roomCode}/current-question")
+    public ResponseEntity<QuestionDTO> getCurrentQuestion(@PathVariable String roomCode) {
+        
+        int index = gameService.getCurrentQuestionIndex(roomCode);
+        Room room = gameService.getRoomByCode(roomCode);
+        Question question = room.getQuiz().getQuestions().get(index);
+        
+        // Don't expose which answer is correct to clients!
+        QuestionDTO dto = QuestionMapper.toQuestionDTO(
+            question,
+            true
+        );
+        
+        return ResponseEntity.ok(dto);
     }
 
     @GetMapping("/{roomCode}/leaderboard")

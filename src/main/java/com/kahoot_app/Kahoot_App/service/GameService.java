@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.kahoot_app.Kahoot_App.dto.LeaderBoardEntryDTO;
-import com.kahoot_app.Kahoot_App.dto.QuestionDTO;
 import com.kahoot_app.Kahoot_App.entity.AnswerOption;
 import com.kahoot_app.Kahoot_App.entity.Player;
 import com.kahoot_app.Kahoot_App.entity.Question;
@@ -52,7 +51,7 @@ public class GameService {
 
     // Create empty room
     @Transactional
-    public Room createRoom() {
+    public Room createRoom(String playerNickName) {
         int maxRetries = 5;
         int attempt = 0;
         
@@ -66,7 +65,7 @@ public class GameService {
                 room.setCurrentQuestionIndex(0);
                 room.setCreatedAt(LocalDateTime.now());
 
-                Player hostPlayer = new Player(roomCode, room, PlayerRole.HOST);
+                Player hostPlayer = new Player(playerNickName, room, PlayerRole.HOST);
                 room.addPlayer(hostPlayer);
 
                 return roomRepository.save(room);
@@ -136,6 +135,7 @@ public class GameService {
         gameTimerService.startQuestionTimer(roomCode, 0, timerToken,timeLimitSeconds);
 
         room.setCurrentQuestionIndex(0);
+        webSocketService.broadcastQuestionAdvance(roomCode, 0);
     }
 
     /*
@@ -149,6 +149,8 @@ public class GameService {
             throw new ConflictException("Game not started");
         }
 
+        syncScoresToDatabase(room);
+        
         // Set status
         room.setStatus(RoomStatus.FINISHED);
         redisGameStateService.setGameStatus(roomCode, RoomStatus.FINISHED);
@@ -187,8 +189,15 @@ public class GameService {
     }
 
     @Transactional
-    public void submitAnswer(Room room, Player player, Long answerOptionID) {
-        RoomStatus status = redisGameStateService.getGameStatus(room.getRoomCode());
+    public void submitAnswer(String roomCode, Long playerId, Long answerOptionID) {
+        Room room = roomRepository.findByRoomCode(roomCode)
+                .orElseThrow(() -> new NotFoundException("Room not found"));
+        RoomStatus status = redisGameStateService.getGameStatus(roomCode);
+        Player player = room.getPlayers().stream()
+            .filter(p -> p.getId().equals(playerId))
+            .findFirst()
+            .orElseThrow(() -> new NotFoundException("Player not found"));
+        
         if (status != RoomStatus.STARTED) {
             throw new BadRequestException("Game has not started yet");
         }
@@ -200,25 +209,34 @@ public class GameService {
         int currentQuestion = redisGameStateService.getCurrentQuestionIndexSafe(room.getRoomCode());
         Question question = room.getQuiz().getQuestions().get(currentQuestion);
 
-        if (redisGameStateService.hasAnswered(room.getRoomCode(), currentQuestion, player.getId())) {
+        if (redisGameStateService.hasAnswered(roomCode, currentQuestion, playerId)) {
             throw new BadRequestException("Player already answered this question");
         }
 
-        redisGameStateService.saveAnswer(room.getRoomCode(), currentQuestion, player.getId(), answerOptionID);
+        redisGameStateService.saveAnswer(roomCode, currentQuestion, playerId, answerOptionID);
 
         calculateAndApplyScore(room, player, question, answerOptionID);
     }
 
     @Transactional 
-    public void advanceQuestionManually(Room room, Player player, Quiz quiz) {
+    public void advanceQuestionManually(String roomCode, long playerId) {
+
+        Room room = roomRepository.findByRoomCode(roomCode)
+                .orElseThrow(() -> new NotFoundException("Room not found"));
+        Player player = room.getPlayers().stream()
+            .filter(p -> p.getId().equals(playerId))
+            .findFirst()
+            .orElseThrow(() -> new NotFoundException("Player not found"));
+        Quiz quiz = room.getQuiz();
+        
         if (player.getRole() != PlayerRole.HOST) {
             throw new BadRequestException("Player cannot change the question");
         }
 
         // Use safe method to handle null from Redis
-        int index = redisGameStateService.getCurrentQuestionIndexSafe(room.getRoomCode());
+        int index = redisGameStateService.getCurrentQuestionIndexSafe(roomCode);
         if (isLastQuestion(room, quiz, index)) {
-            finishGame(room.getRoomCode());
+            finishGame(roomCode);
             return;
         };
 
@@ -226,13 +244,13 @@ public class GameService {
         // Get next question's time limit
         Question nextQuestion = quiz.getQuestions().get(nextIndex);
         int timeLimitSeconds = nextQuestion.getTimeLimitSeconds();
-        redisGameStateService.setCurrentQuestionIndex(room.getRoomCode(), nextIndex);
+        redisGameStateService.setCurrentQuestionIndex(roomCode, nextIndex);
 
-        webSocketService.broadcastQuestionAdvance(room.getRoomCode(), nextIndex);
+        webSocketService.broadcastQuestionAdvance(roomCode, nextIndex);
         
         // Generate new timer token to invalidate any running timer
-        String timerToken = redisGameStateService.generateTimerToken(room.getRoomCode(), nextIndex);
-        gameTimerService.startQuestionTimer(room.getRoomCode(), nextIndex, timerToken, timeLimitSeconds);
+        String timerToken = redisGameStateService.generateTimerToken(roomCode, nextIndex);
+        gameTimerService.startQuestionTimer(roomCode, nextIndex, timerToken, timeLimitSeconds);
     }
 
     @Transactional
@@ -293,6 +311,17 @@ public class GameService {
             .toList();
     }
 
+    @Transactional(readOnly = true)
+    public int getCurrentQuestionIndex(String roomCode) {
+
+        Room room = getRoomByCode(roomCode);
+    
+        if (room.getStatus() != RoomStatus.STARTED) {
+            throw new BadRequestException("Game not started");
+        }
+        return redisGameStateService.getCurrentQuestionIndexSafe(roomCode);
+    }
+
    
 
 
@@ -326,10 +355,6 @@ public class GameService {
                     player.getId(),
                     points
             );
-            
-            // Also update Player entity
-            player.setScore(player.getScore() + points);
-            playerRepository.save(player);
 
             webSocketService.broadcastScoreUpdate(room.getRoomCode(), player.getId(),player.getScore());
         }
@@ -342,7 +367,17 @@ public class GameService {
         }
 
         return false;
-    } 
+    }
+
+    private void syncScoresToDatabase(Room room) {
+        for (Player player : room.getPlayers()) {
+            if (player.getRole() == PlayerRole.PLAYER) {
+                int finalScore = redisGameStateService.getScore(room.getRoomCode(), player.getId());
+                player.setScore(finalScore);
+                playerRepository.save(player);
+            }
+        }
+    }
 
     
     /**

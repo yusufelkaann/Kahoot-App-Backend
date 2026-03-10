@@ -34,7 +34,7 @@ public class QuizMapper {
                     question.setTimeLimitSeconds(qDto.timeLimitSeconds());  
                     question.setQuiz(quiz);
 
-                    List<AnswerOption> options = qDto.answerOptions()
+                    List<AnswerOption> options = qDto.options()
                             .stream()
                             .map(aDto -> {
                                 AnswerOption option = new AnswerOption();
@@ -61,7 +61,7 @@ public class QuizMapper {
         question.setQuestionText(dto.questionText());
         question.setQuiz(quiz);
 
-        List<AnswerOption> options = dto.answerOptions()
+        List<AnswerOption> options = dto.options()
                 .stream()
                 .map(o -> toAnswerOptionEntity(o, question))
                 .collect(Collectors.toList());

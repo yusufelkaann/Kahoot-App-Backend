@@ -55,7 +55,7 @@ public class QuizService {
 
         request.questions().forEach(question -> {
 
-            long correctCount = question.answerOptions()
+            long correctCount = question.options()
                     .stream()
                     .filter(option -> Boolean.TRUE.equals(option.isCorrect()))
                     .count();
