@@ -292,22 +292,57 @@ public class GameService {
     @Transactional(readOnly = true)
     public List<LeaderBoardEntryDTO> getLeaderboard(String roomCode) {
         Room room = getRoomByCode(roomCode);
+        RoomStatus status = redisGameStateService.getGameStatus(roomCode);
 
-        List<Player> sortedPlayers = room.getPlayers().stream()
+        List<Player> players = room.getPlayers().stream()
             .filter(p -> p.getRole() == PlayerRole.PLAYER)
-            .sorted((p1, p2) -> Integer.compare(p2.getScore(), p1.getScore()))
             .toList();
 
-        return IntStream.range(0, sortedPlayers.size())
-            .mapToObj(i -> {
-                Player player = sortedPlayers.get(i);
-                return new LeaderBoardEntryDTO(
+        // After game finishes, Redis is cleared, so use database scores
+        if (status == RoomStatus.FINISHED || status == null) {
+            return players.stream()
+                .sorted((p1, p2) -> Integer.compare(p2.getScore(), p1.getScore()))
+                .map(player -> new LeaderBoardEntryDTO(
                     player.getId(),
                     player.getNickname(),
-                    redisGameStateService.getScore(roomCode, player.getId()),
-                    i + 1
-                );
-            })
+                    player.getScore(), // Use database score
+                    0
+                ))
+                .toList()
+                .stream()
+                .map(dto -> new LeaderBoardEntryDTO(
+                    dto.playerId(),
+                    dto.nickname(),
+                    dto.score(),
+                    players.stream()
+                        .sorted((p1, p2) -> Integer.compare(p2.getScore(), p1.getScore()))
+                        .toList()
+                        .indexOf(players.stream()
+                            .filter(p -> p.getId().equals(dto.playerId()))
+                            .findFirst()
+                            .get()) + 1
+                ))
+                .toList();
+        }
+
+        // During game, use Redis scores
+        List<LeaderBoardEntryDTO> leaderboard = players.stream()
+            .map(player -> new LeaderBoardEntryDTO(
+                player.getId(),
+                player.getNickname(),
+                redisGameStateService.getScore(roomCode, player.getId()),
+                0
+            ))
+            .sorted((a, b) -> Integer.compare(b.score(), a.score()))
+            .toList();
+
+        return IntStream.range(0, leaderboard.size())
+            .mapToObj(i -> new LeaderBoardEntryDTO(
+                leaderboard.get(i).playerId(),
+                leaderboard.get(i).nickname(),
+                leaderboard.get(i).score(),
+                i + 1
+            ))
             .toList();
     }
 
