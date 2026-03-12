@@ -1,0 +1,70 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: kahoot_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - kahoot-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: kahoot_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - kahoot-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    command: redis-server --appendonly yes
+
+  # Spring Boot Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kahoot_app
+    environment:
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATA_REDIS_HOST: ${SPRING_DATA_REDIS_HOST}
+      SPRING_DATA_REDIS_PORT: ${SPRING_DATA_REDIS_PORT}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - kahoot-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  kahoot-network:
+    driver: bridge
