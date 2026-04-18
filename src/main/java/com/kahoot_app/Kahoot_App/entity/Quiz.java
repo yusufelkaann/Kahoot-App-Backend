@@ -1,26 +1,25 @@
 package com.kahoot_app.Kahoot_App.entity;
 
 import java.time.LocalDateTime;
-import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import jakarta.persistence.*;
 import lombok.*;
-
 
 @Entity
 @Table(name = "quizzes")
-@AllArgsConstructor
-@Builder
-@ToString
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Quiz {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
+
     @Column(nullable = false)
     private String title;
 
@@ -35,13 +34,16 @@ public class Quiz {
         cascade = CascadeType.ALL,
         orphanRemoval = true
     )
+    @Builder.Default
     private List<Question> questions = new ArrayList<>();
 
-    public Quiz() {
-        this.createdAt = LocalDateTime.now();
+    @PrePersist
+    public void onCreate() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
     }
 
-    // Helper methods
     public void addQuestion(Question question) {
         questions.add(question);
         question.setQuiz(this);
@@ -51,5 +53,4 @@ public class Quiz {
         questions.remove(question);
         question.setQuiz(null);
     }
-
 }

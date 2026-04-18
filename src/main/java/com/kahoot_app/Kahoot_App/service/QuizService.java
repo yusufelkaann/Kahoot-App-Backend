@@ -44,7 +44,7 @@ public class QuizService {
     @Transactional(readOnly = true)
     public QuizResponseDTO getQuizById(Long id) {
         Quiz quiz = quizRepository.findById(id)
-                .orElseThrow(() -> new BadRequestException("Quiz not found with id" + id));
+                .orElseThrow(() -> new NotFoundException("Quiz not found with id " + id));
         
         return QuizMapper.toResponseDTO(quiz);
     }

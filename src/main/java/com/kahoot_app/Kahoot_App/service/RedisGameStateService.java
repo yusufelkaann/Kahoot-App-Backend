@@ -74,9 +74,9 @@ public class RedisGameStateService {
         redisTemplate.opsForHash().increment(scoreKey(roomCode), playerId.toString(), points);
     }
 
-    public Integer getScore(String roomCode, Long playerId) {
+    public int getScore(String roomCode, Long playerId) {
         Object val = redisTemplate.opsForHash().get(scoreKey(roomCode), playerId.toString());
-        return val != null ? Integer.parseInt(val.toString()) : null;
+        return val != null ? Integer.parseInt(val.toString()) : 0;
     }
 
     public Map<Long, Integer> getAllScores(String roomCode) {

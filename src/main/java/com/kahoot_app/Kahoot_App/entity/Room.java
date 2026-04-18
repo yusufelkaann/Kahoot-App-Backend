@@ -7,10 +7,17 @@ import java.util.List;
 import com.kahoot_app.Kahoot_App.enums.RoomStatus;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "rooms")
+@Getter
+@Setter
+@NoArgsConstructor
 public class Room {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -37,70 +44,15 @@ public class Room {
 
     @PrePersist
     public void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.currentQuestionIndex = 0;
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+        if (this.currentQuestionIndex == null) {
+            this.currentQuestionIndex = 0;
+        }
         if (this.status == null) {
             this.status = RoomStatus.WAITING;
         }
-    }
-
-    public Room() {}
-
-    public Room(String roomCode, Quiz quiz) {
-        this.roomCode = roomCode;
-        this.quiz = quiz;
-        this.status = RoomStatus.WAITING;
-        this.currentQuestionIndex = 0;
-        this.createdAt = LocalDateTime.now();
-    }
-
-    // Getters & Setters
-    public Long getId() {
-        return id;
-    }
-
-    public String getRoomCode() {
-        return roomCode;
-    }
-
-    public void setRoomCode(String roomCode) {
-        this.roomCode = roomCode;
-    }
-
-    public Quiz getQuiz() {
-        return quiz;
-    }
-
-    public void setQuiz(Quiz quiz) {
-        this.quiz = quiz;
-    }
-
-    public RoomStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(RoomStatus status) {
-        this.status = status;
-    }
-
-    public int getCurrentQuestionIndex() {
-        return currentQuestionIndex;
-    }
-
-    public void setCurrentQuestionIndex(int currentQuestionIndex) {
-        this.currentQuestionIndex = currentQuestionIndex;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime localDateTime) {
-        this.createdAt = localDateTime;
-    }
-
-    public List<Player> getPlayers() {
-        return players;
     }
 
     public void addPlayer(Player player) {
@@ -112,6 +64,4 @@ public class Room {
         players.remove(player);
         player.setRoom(null);
     }
-
-    
 }

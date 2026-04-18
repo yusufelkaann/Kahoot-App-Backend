@@ -4,15 +4,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.kahoot_app.Kahoot_App.dto.AnswerOptionDTO;
-import com.kahoot_app.Kahoot_App.dto.CreateRoomRequesDTO;
+import com.kahoot_app.Kahoot_App.dto.CreateRoomRequestDTO;
 import com.kahoot_app.Kahoot_App.dto.JoinRoomRequestDTO;
 import com.kahoot_app.Kahoot_App.dto.RoomResponseDTO;
 import com.kahoot_app.Kahoot_App.dto.SubmitAnswerResponseDTO;
-import com.kahoot_app.Kahoot_App.entity.Player;
 import com.kahoot_app.Kahoot_App.entity.Question;
 import com.kahoot_app.Kahoot_App.entity.Room;
-import com.kahoot_app.Kahoot_App.enums.RoomStatus;
 import com.kahoot_app.Kahoot_App.mappers.AnswerMapper;
 import com.kahoot_app.Kahoot_App.mappers.QuestionMapper;
 import com.kahoot_app.Kahoot_App.mappers.RoomMapper;
@@ -27,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -52,7 +48,7 @@ public class GameController {
 
     // create empty room
     @PostMapping
-    public ResponseEntity<RoomResponseDTO> createRoom(@RequestBody CreateRoomRequesDTO request) {
+    public ResponseEntity<RoomResponseDTO> createRoom(@Valid @RequestBody CreateRoomRequestDTO request) {
         Room room = gameService.createRoom(request.hostNickname());
         RoomResponseDTO response = RoomMapper.toRoomResponseDTO(room, redisGameStateService);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);

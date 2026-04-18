@@ -185,6 +185,8 @@ public class GameService {
         Player savedPlayer = playerRepository.save(player);
         redisGameStateService.initializeScore(roomCode, savedPlayer.getId());
 
+        
+
         return savedPlayer;
     }
 
@@ -238,7 +240,7 @@ public class GameService {
         if (isLastQuestion(room, quiz, index)) {
             finishGame(roomCode);
             return;
-        };
+        }
 
         int nextIndex = index + 1;
         // Get next question's time limit
@@ -273,8 +275,8 @@ public class GameService {
         if (isLastQuestion(room, quiz, index)) {
             finishGame(room.getRoomCode());
             return;
-        };
-        
+        }
+
         int nextIndex = index + 1;
         // Get next question's time limit
         Question nextQuestion = quiz.getQuestions().get(nextIndex);
@@ -300,27 +302,15 @@ public class GameService {
 
         // After game finishes, Redis is cleared, so use database scores
         if (status == RoomStatus.FINISHED || status == null) {
-            return players.stream()
+            List<Player> sorted = players.stream()
                 .sorted((p1, p2) -> Integer.compare(p2.getScore(), p1.getScore()))
-                .map(player -> new LeaderBoardEntryDTO(
-                    player.getId(),
-                    player.getNickname(),
-                    player.getScore(), // Use database score
-                    0
-                ))
-                .toList()
-                .stream()
-                .map(dto -> new LeaderBoardEntryDTO(
-                    dto.playerId(),
-                    dto.nickname(),
-                    dto.score(),
-                    players.stream()
-                        .sorted((p1, p2) -> Integer.compare(p2.getScore(), p1.getScore()))
-                        .toList()
-                        .indexOf(players.stream()
-                            .filter(p -> p.getId().equals(dto.playerId()))
-                            .findFirst()
-                            .get()) + 1
+                .toList();
+            return IntStream.range(0, sorted.size())
+                .mapToObj(i -> new LeaderBoardEntryDTO(
+                    sorted.get(i).getId(),
+                    sorted.get(i).getNickname(),
+                    sorted.get(i).getScore(),
+                    i + 1
                 ))
                 .toList();
         }
@@ -391,11 +381,12 @@ public class GameService {
                     points
             );
 
-            webSocketService.broadcastScoreUpdate(room.getRoomCode(), player.getId(),player.getScore());
+            int updatedScore = redisGameStateService.getScore(room.getRoomCode(), player.getId());
+            webSocketService.broadcastScoreUpdate(room.getRoomCode(), player.getId(), updatedScore);
         }
     }
 
-    public boolean isLastQuestion(Room room, Quiz quiz, int index) {
+    private boolean isLastQuestion(Room room, Quiz quiz, int index) {
         
         if (index + 1 >= quiz.getQuestions().size()) {
             return true;

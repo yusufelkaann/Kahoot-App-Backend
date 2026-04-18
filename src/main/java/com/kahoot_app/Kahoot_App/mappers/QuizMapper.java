@@ -1,11 +1,8 @@
 package com.kahoot_app.Kahoot_App.mappers;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
-import com.kahoot_app.Kahoot_App.dto.AnswerOptionDTO;
 import com.kahoot_app.Kahoot_App.dto.AnswerOptionResponseDTO;
-import com.kahoot_app.Kahoot_App.dto.QuestionDTO;
 import com.kahoot_app.Kahoot_App.dto.QuestionResponseDTO;
 import com.kahoot_app.Kahoot_App.dto.QuizRequestDTO;
 import com.kahoot_app.Kahoot_App.dto.QuizResponseDTO;
@@ -53,33 +50,6 @@ public class QuizMapper {
         quiz.setQuestions(questions);
 
         return quiz;
-    }
-
-    private static Question toQuestionEntity(QuestionDTO dto, Quiz quiz) {
-
-        Question question = new Question();
-        question.setQuestionText(dto.questionText());
-        question.setQuiz(quiz);
-
-        List<AnswerOption> options = dto.options()
-                .stream()
-                .map(o -> toAnswerOptionEntity(o, question))
-                .collect(Collectors.toList());
-
-        question.setOptions(options);
-
-        return question;
-    }
-
-    private static AnswerOption toAnswerOptionEntity(
-            AnswerOptionDTO dto,
-            Question question
-    ) {
-        AnswerOption option = new AnswerOption();
-        option.setText(dto.text());
-        option.setIsCorrect(dto.isCorrect());
-        option.setQuestion(question);
-        return option;
     }
 
     // entity to dto
