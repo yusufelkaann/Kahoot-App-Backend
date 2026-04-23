@@ -7,18 +7,14 @@ import com.kahoot_app.Kahoot_App.dto.PlayerResponseDTO;
 import com.kahoot_app.Kahoot_App.dto.RoomResponseDTO;
 import com.kahoot_app.Kahoot_App.entity.Player;
 import com.kahoot_app.Kahoot_App.entity.Room;
-import com.kahoot_app.Kahoot_App.service.RedisGameStateService;
 
 
 public class RoomMapper {
-    // entity to DTO
-    public static RoomResponseDTO toRoomResponseDTO(Room room, RedisGameStateService redisService) {
-        // Fetch all scores in one Redis call
-        Map<Long, Integer> allScores = redisService.getAllScores(room.getRoomCode());
-        
+
+    public static RoomResponseDTO toRoomResponseDTO(Room room, Map<Long, Integer> scores) {
         var players = room.getPlayers()
                         .stream()
-                        .map(player -> toPlayerResponseDTO(player, allScores))
+                        .map(player -> toPlayerResponseDTO(player, scores))
                         .collect(Collectors.toList());
         
         return new RoomResponseDTO(

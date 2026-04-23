@@ -17,7 +17,10 @@ import com.kahoot_app.Kahoot_App.entity.Quiz;
 import com.kahoot_app.Kahoot_App.entity.Room;
 import com.kahoot_app.Kahoot_App.enums.PlayerRole;
 import com.kahoot_app.Kahoot_App.enums.RoomStatus;
+import com.kahoot_app.Kahoot_App.dto.RoomResponseDTO;
 import com.kahoot_app.Kahoot_App.global.exceptions.*;
+import com.kahoot_app.Kahoot_App.mappers.RoomMapper;
+import com.kahoot_app.Kahoot_App.repository.GameSessionStateStore;
 import com.kahoot_app.Kahoot_App.repository.PlayerRepository;
 import com.kahoot_app.Kahoot_App.repository.QuizRepository;
 import com.kahoot_app.Kahoot_App.repository.RoomRepository;
@@ -28,22 +31,22 @@ public class GameService {
     private final QuizRepository quizRepository;
     private final PlayerRepository playerRepository;
 
-    private final RedisGameStateService redisGameStateService;
+    private final GameSessionStateStore gameSessionStateStore;
     private final GameTimerService gameTimerService;
     private final GameWebSocketService webSocketService;
 
     private final Random random = new Random();
 
-    public GameService(RoomRepository roomRepository, 
+    public GameService(RoomRepository roomRepository,
         QuizRepository quizRepository,
         PlayerRepository playerRepository,
-        RedisGameStateService redisGameStateService,
+        GameSessionStateStore gameSessionStateStore,
         GameTimerService gameTimerService,
         GameWebSocketService webSocketService) {
         this.roomRepository = roomRepository;
         this.quizRepository = quizRepository;
         this.playerRepository = playerRepository;
-        this.redisGameStateService = redisGameStateService;
+        this.gameSessionStateStore = gameSessionStateStore;
         this.gameTimerService = gameTimerService;
         this.webSocketService = webSocketService;
     }
@@ -123,15 +126,15 @@ public class GameService {
         }
 
         room.setStatus(RoomStatus.STARTED);
-        redisGameStateService.setGameStatus(roomCode, RoomStatus.STARTED);
-        redisGameStateService.setCurrentQuestionIndex(roomCode, 0);
+        gameSessionStateStore.setGameStatus(roomCode, RoomStatus.STARTED);
+        gameSessionStateStore.setCurrentQuestionIndex(roomCode, 0);
 
         // Get next question's time limit
         Question firstQuestion = room.getQuiz().getQuestions().get(0);
         int timeLimitSeconds = firstQuestion.getTimeLimitSeconds();
 
         // Generate timer token to prevent race conditions
-        String timerToken = redisGameStateService.generateTimerToken(roomCode, 0);
+        String timerToken = gameSessionStateStore.generateTimerToken(roomCode, 0);
         gameTimerService.startQuestionTimer(roomCode, 0, timerToken,timeLimitSeconds);
 
         room.setCurrentQuestionIndex(0);
@@ -153,12 +156,12 @@ public class GameService {
         
         // Set status
         room.setStatus(RoomStatus.FINISHED);
-        redisGameStateService.setGameStatus(roomCode, RoomStatus.FINISHED);
+        gameSessionStateStore.setGameStatus(roomCode, RoomStatus.FINISHED);
 
         // Broadcast game finished
         webSocketService.broadcastGameFinished(roomCode);
         
-        redisGameStateService.clearRoom(roomCode);
+        gameSessionStateStore.clearRoom(roomCode);
     }
 
     @Transactional
@@ -183,7 +186,7 @@ public class GameService {
         
         room.addPlayer(player);
         Player savedPlayer = playerRepository.save(player);
-        redisGameStateService.initializeScore(roomCode, savedPlayer.getId());
+        gameSessionStateStore.initializeScore(roomCode, savedPlayer.getId());
 
         
 
@@ -191,10 +194,10 @@ public class GameService {
     }
 
     @Transactional
-    public void submitAnswer(String roomCode, Long playerId, Long answerOptionID) {
+    public int submitAnswer(String roomCode, Long playerId, Long answerOptionID) {
         Room room = roomRepository.findByRoomCode(roomCode)
                 .orElseThrow(() -> new NotFoundException("Room not found"));
-        RoomStatus status = redisGameStateService.getGameStatus(roomCode);
+        RoomStatus status = gameSessionStateStore.getGameStatus(roomCode);
         Player player = room.getPlayers().stream()
             .filter(p -> p.getId().equals(playerId))
             .findFirst()
@@ -208,16 +211,17 @@ public class GameService {
             throw new BadRequestException("Host cannot answer questions");
         }
 
-        int currentQuestion = redisGameStateService.getCurrentQuestionIndexSafe(room.getRoomCode());
+        int currentQuestion = gameSessionStateStore.getCurrentQuestionIndexSafe(room.getRoomCode());
         Question question = room.getQuiz().getQuestions().get(currentQuestion);
 
-        if (redisGameStateService.hasAnswered(roomCode, currentQuestion, playerId)) {
+        if (gameSessionStateStore.hasAnswered(roomCode, currentQuestion, playerId)) {
             throw new BadRequestException("Player already answered this question");
         }
 
-        redisGameStateService.saveAnswer(roomCode, currentQuestion, playerId, answerOptionID);
+        gameSessionStateStore.saveAnswer(roomCode, currentQuestion, playerId, answerOptionID);
 
         calculateAndApplyScore(room, player, question, answerOptionID);
+        return gameSessionStateStore.getScore(roomCode, playerId);
     }
 
     @Transactional 
@@ -236,7 +240,7 @@ public class GameService {
         }
 
         // Use safe method to handle null from Redis
-        int index = redisGameStateService.getCurrentQuestionIndexSafe(roomCode);
+        int index = gameSessionStateStore.getCurrentQuestionIndexSafe(roomCode);
         if (isLastQuestion(room, quiz, index)) {
             finishGame(roomCode);
             return;
@@ -246,12 +250,12 @@ public class GameService {
         // Get next question's time limit
         Question nextQuestion = quiz.getQuestions().get(nextIndex);
         int timeLimitSeconds = nextQuestion.getTimeLimitSeconds();
-        redisGameStateService.setCurrentQuestionIndex(roomCode, nextIndex);
+        gameSessionStateStore.setCurrentQuestionIndex(roomCode, nextIndex);
 
         webSocketService.broadcastQuestionAdvance(roomCode, nextIndex);
         
         // Generate new timer token to invalidate any running timer
-        String timerToken = redisGameStateService.generateTimerToken(roomCode, nextIndex);
+        String timerToken = gameSessionStateStore.generateTimerToken(roomCode, nextIndex);
         gameTimerService.startQuestionTimer(roomCode, nextIndex, timerToken, timeLimitSeconds);
     }
 
@@ -270,7 +274,7 @@ public class GameService {
         }
         
         
-        int index = redisGameStateService.getCurrentQuestionIndexSafe(roomCode);
+        int index = gameSessionStateStore.getCurrentQuestionIndexSafe(roomCode);
         
         if (isLastQuestion(room, quiz, index)) {
             finishGame(room.getRoomCode());
@@ -281,20 +285,20 @@ public class GameService {
         // Get next question's time limit
         Question nextQuestion = quiz.getQuestions().get(nextIndex);
         int timeLimitSeconds = nextQuestion.getTimeLimitSeconds();
-        redisGameStateService.setCurrentQuestionIndex(roomCode, nextIndex);
+        gameSessionStateStore.setCurrentQuestionIndex(roomCode, nextIndex);
 
         // Broadcast question advace
         webSocketService.broadcastQuestionAdvance(roomCode, nextIndex);
         
         // Generate new timer token for the next question
-        String timerToken = redisGameStateService.generateTimerToken(roomCode, nextIndex);
+        String timerToken = gameSessionStateStore.generateTimerToken(roomCode, nextIndex);
         gameTimerService.startQuestionTimer(roomCode,nextIndex, timerToken, timeLimitSeconds);
     }
 
     @Transactional(readOnly = true)
     public List<LeaderBoardEntryDTO> getLeaderboard(String roomCode) {
         Room room = getRoomByCode(roomCode);
-        RoomStatus status = redisGameStateService.getGameStatus(roomCode);
+        RoomStatus status = gameSessionStateStore.getGameStatus(roomCode);
 
         List<Player> players = room.getPlayers().stream()
             .filter(p -> p.getRole() == PlayerRole.PLAYER)
@@ -320,7 +324,7 @@ public class GameService {
             .map(player -> new LeaderBoardEntryDTO(
                 player.getId(),
                 player.getNickname(),
-                redisGameStateService.getScore(roomCode, player.getId()),
+                gameSessionStateStore.getScore(roomCode, player.getId()),
                 0
             ))
             .sorted((a, b) -> Integer.compare(b.score(), a.score()))
@@ -344,11 +348,22 @@ public class GameService {
         if (room.getStatus() != RoomStatus.STARTED) {
             throw new BadRequestException("Game not started");
         }
-        return redisGameStateService.getCurrentQuestionIndexSafe(roomCode);
+        return gameSessionStateStore.getCurrentQuestionIndexSafe(roomCode);
     }
 
    
 
+
+    @Transactional(readOnly = true)
+    public RoomResponseDTO getRoomResponseDTO(String roomCode) {
+        Room room = getRoomByCode(roomCode);
+        return RoomMapper.toRoomResponseDTO(room, gameSessionStateStore.getAllScores(roomCode));
+    }
+
+    @Transactional(readOnly = true)
+    public long getTimeRemaining(String roomCode) {
+        return gameSessionStateStore.getTimerTTL(roomCode);
+    }
 
     // HELPERS
     @Transactional(readOnly = true)
@@ -375,13 +390,13 @@ public class GameService {
             int points = question.getPoints();
 
             // Update score in Redis for real-time tracking
-            redisGameStateService.incrementScore(
+            gameSessionStateStore.incrementScore(
                     room.getRoomCode(),
                     player.getId(),
                     points
             );
 
-            int updatedScore = redisGameStateService.getScore(room.getRoomCode(), player.getId());
+            int updatedScore = gameSessionStateStore.getScore(room.getRoomCode(), player.getId());
             webSocketService.broadcastScoreUpdate(room.getRoomCode(), player.getId(), updatedScore);
         }
     }
@@ -398,7 +413,7 @@ public class GameService {
     private void syncScoresToDatabase(Room room) {
         for (Player player : room.getPlayers()) {
             if (player.getRole() == PlayerRole.PLAYER) {
-                int finalScore = redisGameStateService.getScore(room.getRoomCode(), player.getId());
+                int finalScore = gameSessionStateStore.getScore(room.getRoomCode(), player.getId());
                 player.setScore(finalScore);
                 playerRepository.save(player);
             }

@@ -4,7 +4,8 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import com.kahoot_app.Kahoot_App.repository.QuizRepository;
+import com.kahoot_app.Kahoot_App.repository.GameSessionStateStore;
+
 
 /**
  * Separate service to handle async timer operations.
@@ -12,15 +13,14 @@ import com.kahoot_app.Kahoot_App.repository.QuizRepository;
  */
 @Service
 public class GameTimerService {
-    
-    private final RedisGameStateService redisGameStateService;
 
+    private final GameSessionStateStore gameSessionStateStore;
     private final GameService gameService;
 
     public GameTimerService(
-            RedisGameStateService redisGameStateService,
+            GameSessionStateStore gameSessionStateStore,
             @Lazy GameService gameService) {
-        this.redisGameStateService = redisGameStateService;
+        this.gameSessionStateStore = gameSessionStateStore;
         this.gameService = gameService;
     }
 
@@ -32,7 +32,7 @@ public class GameTimerService {
 
        
 
-        redisGameStateService.startQuestionTimer(roomCode, timeLimitSeconds);
+        gameSessionStateStore.startQuestionTimer(roomCode, timeLimitSeconds);
 
         try {
             Thread.sleep(timeLimitSeconds * 1000L);
@@ -42,7 +42,7 @@ public class GameTimerService {
         }
 
         // Verify timer token 
-        if (!redisGameStateService.isTimerTokenValid(roomCode, timerToken)) {
+        if (!gameSessionStateStore.isTimerTokenValid(roomCode, timerToken)) {
             return; 
         }
 

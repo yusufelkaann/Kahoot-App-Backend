@@ -8,13 +8,10 @@ import com.kahoot_app.Kahoot_App.dto.CreateRoomRequestDTO;
 import com.kahoot_app.Kahoot_App.dto.JoinRoomRequestDTO;
 import com.kahoot_app.Kahoot_App.dto.RoomResponseDTO;
 import com.kahoot_app.Kahoot_App.dto.SubmitAnswerResponseDTO;
-import com.kahoot_app.Kahoot_App.entity.Question;
 import com.kahoot_app.Kahoot_App.entity.Room;
 import com.kahoot_app.Kahoot_App.mappers.AnswerMapper;
 import com.kahoot_app.Kahoot_App.mappers.QuestionMapper;
-import com.kahoot_app.Kahoot_App.mappers.RoomMapper;
 import com.kahoot_app.Kahoot_App.service.GameService;
-import com.kahoot_app.Kahoot_App.service.RedisGameStateService;
 import com.kahoot_app.Kahoot_App.dto.LeaderBoardEntryDTO;
 import com.kahoot_app.Kahoot_App.dto.QuestionDTO;
 
@@ -39,18 +36,16 @@ import org.springframework.web.bind.annotation.RequestBody;
 public class GameController {
     
     private final GameService gameService;
-    private final RedisGameStateService redisGameStateService;
 
-    public GameController(GameService gameService, RedisGameStateService redisGameStateService) {
+    public GameController(GameService gameService) {
         this.gameService = gameService;
-        this.redisGameStateService = redisGameStateService;
     }
 
     // create empty room
     @PostMapping
     public ResponseEntity<RoomResponseDTO> createRoom(@Valid @RequestBody CreateRoomRequestDTO request) {
         Room room = gameService.createRoom(request.hostNickname());
-        RoomResponseDTO response = RoomMapper.toRoomResponseDTO(room, redisGameStateService);
+        RoomResponseDTO response = gameService.getRoomResponseDTO(room.getRoomCode());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -61,24 +56,22 @@ public class GameController {
             @Valid @RequestBody JoinRoomRequestDTO request
     ) {
         gameService.joinRoom(roomCode, request.nickname());
-        Room room = gameService.getRoomByCode(roomCode);
-        return RoomMapper.toRoomResponseDTO(room, redisGameStateService);
-    } 
+        return gameService.getRoomResponseDTO(roomCode);
+    }
 
     @PostMapping("/{roomCode}/assign-quiz/{quizId}")
     public RoomResponseDTO assignQuiz(
             @PathVariable String roomCode,
             @PathVariable Long quizId
     ) {
-        Room room = gameService.assignQuiz(roomCode, quizId);
-        return RoomMapper.toRoomResponseDTO(room, redisGameStateService);
+        gameService.assignQuiz(roomCode, quizId);
+        return gameService.getRoomResponseDTO(roomCode);
     }
 
     @PostMapping("/{roomCode}/start")
     public RoomResponseDTO startGame(@PathVariable String roomCode) {
         gameService.startGame(roomCode);
-        Room room = gameService.getRoomByCode(roomCode);
-        return RoomMapper.toRoomResponseDTO(room, redisGameStateService);
+        return gameService.getRoomResponseDTO(roomCode);
     }
 
     @PostMapping("/{roomCode}/submit-answer")
@@ -87,12 +80,8 @@ public class GameController {
             @RequestParam Long playerId,
             @RequestParam Long answerOptionId
     ) {
-        gameService.submitAnswer(roomCode, playerId, answerOptionId);
-
-        int currentScore = redisGameStateService.getScore(roomCode, playerId);
-
+        int currentScore = gameService.submitAnswer(roomCode, playerId, answerOptionId);
         return AnswerMapper.toSubmitAnswerResponse(playerId, currentScore);
-        
     }
 
     @PostMapping("/{roomCode}/advance")
@@ -100,24 +89,19 @@ public class GameController {
             @PathVariable String roomCode,
             @RequestParam Long hostPlayerId
     ) {
-        
         gameService.advanceQuestionManually(roomCode, hostPlayerId);
-        
-        Room updatedRoom = gameService.getRoomByCode(roomCode);
-        return ResponseEntity.ok(RoomMapper.toRoomResponseDTO(updatedRoom, redisGameStateService));
+        return ResponseEntity.ok(gameService.getRoomResponseDTO(roomCode));
     }
 
     @PostMapping("/{roomCode}/finish")
     public RoomResponseDTO finishGame(@PathVariable String roomCode) {
         gameService.finishGame(roomCode);
-        Room room = gameService.getRoomByCode(roomCode);
-        return RoomMapper.toRoomResponseDTO(room, redisGameStateService);
+        return gameService.getRoomResponseDTO(roomCode);
     }
 
     @GetMapping("/{roomCode}")
     public RoomResponseDTO getRoom(@PathVariable String roomCode) {
-        Room room = gameService.getRoomByCode(roomCode);
-        return RoomMapper.toRoomResponseDTO(room, redisGameStateService);
+        return gameService.getRoomResponseDTO(roomCode);
     }
 
     @GetMapping("/{roomCode}/current-question")
@@ -144,7 +128,7 @@ public class GameController {
 
     @GetMapping("/{roomCode}/time-remaining")
     public ResponseEntity<Map<String, Long>> getTimeRemaining(@PathVariable String roomCode) {
-        long seconds = redisGameStateService.getTimerTTL(roomCode);
+        long seconds = gameService.getTimeRemaining(roomCode);
         return ResponseEntity.ok(Map.of("secondsRemaining", seconds));
     }
 
