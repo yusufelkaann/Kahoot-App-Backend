@@ -1,6 +1,6 @@
 # Kahoot App
 
-A Spring Boot-based real-time interactive quiz application inspired by Kahoot, featuring WebSocket support, Redis caching, and Docker deployment capabilities.
+A Spring Boot-based real-time interactive quiz application inspired by Kahoot, featuring WebSocket support, Redis caching, AI-powered quiz generation, and Docker deployment capabilities.
 
 ## 📋 Table of Contents
 
@@ -21,6 +21,7 @@ Kahoot App is a modern web-based quiz platform built with Spring Boot that enabl
 
 **Key Capabilities:**
 - Create and manage quizzes with multiple-choice questions
+- Generate quizzes instantly using AI (topic, difficulty, question count)
 - Generate unique 6-digit room codes for game sessions
 - Real-time gameplay with WebSocket communication
 - Automatic and manual question advancement
@@ -36,6 +37,12 @@ Kahoot App is a modern web-based quiz platform built with Spring Boot that enabl
 - Assign points to questions
 - Multiple-choice questions with exactly one correct answer
 - Question ordering support
+
+### AI Quiz Generation
+- Generate a complete quiz from a topic, difficulty, and question count
+- Powered by Spring AI with structured output — returns a fully validated quiz ready to play
+- Difficulty controls time limits and point values automatically (easy/medium/hard)
+- Up to 20 questions per generation
 
 ### Game Room System
 - Generate unique 6-digit room codes
@@ -73,15 +80,19 @@ The application follows a layered architecture with clear separation of concerns
 │          Controllers (REST + WebSocket)         │
 ├─────────────────────────────────────────────────┤
 │               Service Layer                     │
-│  ├─ GameService (Core game logic)             │
-│  ├─ QuizService (Quiz management)             │
-│  ├─ RedisGameStateService (State management)   │
-│  ├─ GameTimerService (Async timers)           │
-│  └─ GameWebSocketService (Real-time events)    │
+│  ├─ GameService (Core game logic)               │
+│  ├─ QuizService (Quiz management)               │
+│  ├─ AiQuizService (AI quiz generation)          │
+│  ├─ QuizSessionDomainService (Domain rules)     │
+│  ├─ GameTimerService (Async timers)             │
+│  └─ GameWebSocketService (Real-time events)     │
 ├─────────────────────────────────────────────────┤
 │          Repository Layer (JPA)                 │
+│  └─ GameSessionStateStore (state abstraction)   │
 ├─────────────────────────────────────────────────┤
 │    PostgreSQL (Persistence) + Redis (Cache)     │
+│    └─ RedisGameStateService implements          │
+│       GameSessionStateStore                     │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -106,6 +117,7 @@ The application follows a layered architecture with clear separation of concerns
 - **Maven** - Build and dependency management
 - **Docker** - Containerization
 - **Docker Compose** - Multi-container orchestration
+- **Spring AI** - AI quiz generation via chat model integration
 
 ### WebSocket Configuration
 
@@ -151,6 +163,26 @@ GET /api/v1/quizzes
 #### Get Quiz by ID
 ```http
 GET /api/v1/quizzes/{id}
+```
+
+#### Delete Quiz
+```http
+DELETE /api/v1/quizzes/{id}
+```
+Returns `409 Conflict` if the quiz is currently active in a game session.
+
+#### Generate Quiz with AI
+```http
+POST /api/v1/quizzes/generate
+Content-Type: application/json
+
+{
+  "topic": "World War II",
+  "questionCount": 10,
+  "difficulty": "medium"
+}
+
+Response: Fully generated QuizResponseDTO ready to assign to a room
 ```
 
 ### Game Room Management (`/api/v1/rooms`)
@@ -317,11 +349,31 @@ Last question completed → Room status: FINISHED → Scores synced to DB → Le
 - Host cannot submit answers
 
 ### Redis State Management
-- **Game Status**: Stored per room
+Redis is used as the real-time game state store for all active sessions:
+
+- **Game Status**: Stored per room (WAITING / STARTED / FINISHED)
 - **Current Question Index**: Tracked in real-time
-- **Scores**: Hash map of playerId → score
-- **Answers**: Tracked to prevent duplicate submissions
-- **Timer State**: TTL-based countdown tracking
+- **Scores**: Hash map of `playerId → score` per room
+- **Answers**: Tracked per question to prevent duplicate submissions
+- **Timer State**: TTL-based countdown, token-validated to prevent race conditions
+
+Redis state is cleared on game finish; final scores are persisted to PostgreSQL at that point.
+
+#### GameSessionStateStore Abstraction
+All Redis access goes through the `GameSessionStateStore` interface. `RedisGameStateService` implements this interface and handles all Redis operations. `GameService` and `GameTimerService` depend only on the interface — not on Redis directly — making the storage layer swappable and independently testable.
+
+### AI Quiz Generation
+Quizzes can be generated from a single API call using Spring AI:
+- **Input**: topic, difficulty (`easy` / `medium` / `hard`), question count (1–20)
+- **Output**: A fully structured quiz persisted to the database, immediately assignable to a room
+- Difficulty automatically sets `timeLimitSeconds` (30 / 20 / 15) and `points` (100 / 200 / 300) per question
+- Uses structured output — the AI response is deserialized directly into `QuizRequestDTO` and validated before saving
+
+### Quiz Deletion & Active Session Guard
+- Quizzes can be deleted via `DELETE /api/v1/quizzes/{id}`
+- Before deletion, `QuizSessionDomainService` checks whether the quiz is currently assigned to any room with status `STARTED`
+- If it is, the request is rejected with `409 Conflict` — you cannot delete a quiz mid-game
+- This check is intentionally a **domain service** (not a repository query or a flag on the quiz), because "is this quiz active?" is a fact about the relationship between two aggregates (`Quiz` and `Room`), not a property of the quiz itself
 
 ### WebSocket Broadcasting
 All game events are broadcast to room participants:
@@ -348,6 +400,6 @@ Contributions are welcome! Please follow these steps:
 
 ---
 
-**Last Updated**: March 2026  
+**Last Updated**: April 2026  
 **Version**: 0.0.1-SNAPSHOT  
 **Status**: Active Development
