@@ -3,8 +3,10 @@ package com.kahoot_app.Kahoot_App.controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.kahoot_app.Kahoot_App.dto.GenerateQuizRequestDTO;
 import com.kahoot_app.Kahoot_App.dto.QuizRequestDTO;
 import com.kahoot_app.Kahoot_App.dto.QuizResponseDTO;
+import com.kahoot_app.Kahoot_App.service.AiQuizService;
 import com.kahoot_app.Kahoot_App.service.QuizService;
 
 import jakarta.validation.Valid;
@@ -26,9 +28,11 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 public class QuizController {
 
     private final QuizService quizService;
+    private final AiQuizService aiQuizService;
 
-    public QuizController(QuizService quizService) {
+    public QuizController(QuizService quizService, AiQuizService aiQuizService) {
         this.quizService = quizService;
+        this.aiQuizService = aiQuizService;
     }
 
     @PostMapping
@@ -45,5 +49,11 @@ public class QuizController {
     @GetMapping("/{id}")
     public QuizResponseDTO getQuizById(@PathVariable Long id) {
         return quizService.getQuizById(id);
+    }
+
+    @PostMapping("/generate")
+    @ResponseStatus(HttpStatus.CREATED)
+    public QuizResponseDTO generateQuiz(@Valid @RequestBody GenerateQuizRequestDTO request) {
+        return aiQuizService.generateQuiz(request);
     }
 }
