@@ -16,9 +16,11 @@ import com.kahoot_app.Kahoot_App.repository.QuizRepository;
 @Transactional
 public class QuizService {
     private final QuizRepository quizRepository;
+    private final QuizSessionDomainService quizSessionDomainService;
 
-    public QuizService(QuizRepository quizRepository) {
+    public QuizService(QuizRepository quizRepository, QuizSessionDomainService quizSessionDomainService) {
         this.quizRepository = quizRepository;
+        this.quizSessionDomainService = quizSessionDomainService;
     }
 
     // Create Quiz
@@ -78,5 +80,21 @@ public class QuizService {
                 );
             }
         });
+    }
+
+    // Delete Quiz
+    public void deleteQuiz(Long id) {
+        // Check if quiz exists
+        if (!quizRepository.existsById(id)) {
+            throw new NotFoundException("Quiz not found with id " + id);
+        }
+
+        // Check if quiz is active in any session
+        if (quizSessionDomainService.isQuizActiveInSession(id)) {
+            throw new ConflictException("Cannot delete quiz while it is active in a game session");
+        }
+
+        // Delete quiz
+        quizRepository.deleteById(id);
     }
 }
