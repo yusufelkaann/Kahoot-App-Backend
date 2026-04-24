@@ -14,6 +14,7 @@ import com.kahoot_app.Kahoot_App.entity.Question;
 import com.kahoot_app.Kahoot_App.entity.Room;
 import com.kahoot_app.Kahoot_App.mappers.AnswerMapper;
 import com.kahoot_app.Kahoot_App.mappers.QuestionMapper;
+import com.kahoot_app.Kahoot_App.command.GameCommandFactory;
 import com.kahoot_app.Kahoot_App.service.GameFlowService;
 import com.kahoot_app.Kahoot_App.service.RoomService;
 import com.kahoot_app.Kahoot_App.service.ScoringService;
@@ -37,13 +38,16 @@ public class GameController {
     private final RoomService roomService;
     private final GameFlowService gameFlowService;
     private final ScoringService scoringService;
+    private final GameCommandFactory gameCommandFactory;
 
     public GameController(RoomService roomService,
             GameFlowService gameFlowService,
-            ScoringService scoringService) {
+            ScoringService scoringService,
+            GameCommandFactory gameCommandFactory) {
         this.roomService = roomService;
         this.gameFlowService = gameFlowService;
         this.scoringService = scoringService;
+        this.gameCommandFactory = gameCommandFactory;
     }
 
     @PostMapping
@@ -71,7 +75,7 @@ public class GameController {
 
     @PostMapping("/{roomCode}/start")
     public RoomResponseDTO startGame(@PathVariable String roomCode) {
-        gameFlowService.startGame(roomCode);
+        gameCommandFactory.startGame(roomCode).execute();
         return roomService.getRoomResponseDTO(roomCode);
     }
 
@@ -88,13 +92,13 @@ public class GameController {
     public ResponseEntity<?> advanceQuestion(
             @PathVariable String roomCode,
             @RequestParam Long hostPlayerId) {
-        gameFlowService.advanceQuestionManually(roomCode, hostPlayerId);
+        gameCommandFactory.advanceQuestion(roomCode, hostPlayerId).execute();
         return ResponseEntity.ok(roomService.getRoomResponseDTO(roomCode));
     }
 
     @PostMapping("/{roomCode}/finish")
     public RoomResponseDTO finishGame(@PathVariable String roomCode) {
-        gameFlowService.finishGame(roomCode);
+        gameCommandFactory.finishGame(roomCode).execute();
         return roomService.getRoomResponseDTO(roomCode);
     }
 
