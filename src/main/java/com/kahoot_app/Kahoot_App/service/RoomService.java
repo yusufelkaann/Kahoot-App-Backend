@@ -15,6 +15,7 @@ import com.kahoot_app.Kahoot_App.enums.PlayerRole;
 import com.kahoot_app.Kahoot_App.enums.RoomStatus;
 import com.kahoot_app.Kahoot_App.global.exceptions.ConflictException;
 import com.kahoot_app.Kahoot_App.global.exceptions.NotFoundException;
+import com.kahoot_app.Kahoot_App.state.RoomStateFactory;
 import com.kahoot_app.Kahoot_App.mappers.RoomMapper;
 import com.kahoot_app.Kahoot_App.repository.PlayerRepository;
 import com.kahoot_app.Kahoot_App.repository.QuizRepository;
@@ -75,9 +76,7 @@ public class RoomService {
     public Room assignQuiz(String roomCode, Long quizId) {
         Room room = getRoomByCode(roomCode);
 
-        if (room.getStatus() != RoomStatus.WAITING) {
-            throw new ConflictException("Cannot assign quiz after game started");
-        }
+        RoomStateFactory.forStatus(room.getStatus()).onAssignQuiz();
 
         Quiz quiz = quizRepository.findById(quizId)
                 .orElseThrow(() -> new NotFoundException("Quiz not found"));
@@ -91,9 +90,7 @@ public class RoomService {
         Room room = roomRepository.findByRoomCode(roomCode)
                 .orElseThrow(() -> new NotFoundException("Room not found"));
 
-        if (room.getStatus() != RoomStatus.WAITING) {
-            throw new ConflictException("Game already started");
-        }
+        RoomStateFactory.forStatus(room.getStatus()).onJoin();
 
         if (playerRepository.existsByRoomAndNickname(room, nickname)) {
             throw new ConflictException("Nickname already taken");

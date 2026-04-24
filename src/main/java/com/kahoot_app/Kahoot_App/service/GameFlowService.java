@@ -10,11 +10,11 @@ import com.kahoot_app.Kahoot_App.entity.Room;
 import com.kahoot_app.Kahoot_App.enums.PlayerRole;
 import com.kahoot_app.Kahoot_App.enums.RoomStatus;
 import com.kahoot_app.Kahoot_App.global.exceptions.BadRequestException;
-import com.kahoot_app.Kahoot_App.global.exceptions.ConflictException;
 import com.kahoot_app.Kahoot_App.global.exceptions.NotFoundException;
 import com.kahoot_app.Kahoot_App.repository.GameStatusStore;
 import com.kahoot_app.Kahoot_App.repository.QuestionTimerStore;
 import com.kahoot_app.Kahoot_App.repository.RoomRepository;
+import com.kahoot_app.Kahoot_App.state.RoomStateFactory;
 
 @Service
 public class GameFlowService {
@@ -44,9 +44,7 @@ public class GameFlowService {
     public void startGame(String roomCode) {
         Room room = getRoomByCode(roomCode);
 
-        if (room.getStatus() != RoomStatus.WAITING) {
-            throw new ConflictException("Game already started");
-        }
+        RoomStateFactory.forStatus(room.getStatus()).onStart();
 
         if (room.getQuiz() == null) {
             throw new BadRequestException("Cannot start game without quiz");
@@ -78,9 +76,7 @@ public class GameFlowService {
     public void finishGame(String roomCode) {
         Room room = getRoomByCode(roomCode);
 
-        if (room.getStatus() != RoomStatus.STARTED) {
-            throw new ConflictException("Game not started");
-        }
+        RoomStateFactory.forStatus(room.getStatus()).onFinish();
 
         scoringService.syncScoresToDatabase(room);
 
@@ -99,6 +95,8 @@ public class GameFlowService {
                 .findFirst()
                 .orElseThrow(() -> new NotFoundException("Player not found"));
         Quiz quiz = room.getQuiz();
+
+        RoomStateFactory.forStatus(room.getStatus()).onAdvance();
 
         if (player.getRole() != PlayerRole.HOST) {
             throw new BadRequestException("Player cannot change the question");

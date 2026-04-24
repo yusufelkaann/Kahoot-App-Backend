@@ -16,6 +16,7 @@ import com.kahoot_app.Kahoot_App.enums.RoomStatus;
 import com.kahoot_app.Kahoot_App.global.exceptions.BadRequestException;
 import com.kahoot_app.Kahoot_App.global.exceptions.NotFoundException;
 import com.kahoot_app.Kahoot_App.repository.AnswerStore;
+import com.kahoot_app.Kahoot_App.state.RoomStateFactory;
 import com.kahoot_app.Kahoot_App.repository.GameStatusStore;
 import com.kahoot_app.Kahoot_App.repository.PlayerRepository;
 import com.kahoot_app.Kahoot_App.repository.RoomRepository;
@@ -55,9 +56,7 @@ public class ScoringService {
                 .findFirst()
                 .orElseThrow(() -> new NotFoundException("Player not found"));
 
-        if (status != RoomStatus.STARTED) {
-            throw new BadRequestException("Game has not started yet");
-        }
+        RoomStateFactory.forStatus(status).onSubmitAnswer();
 
         if (player.getRole() == PlayerRole.HOST) {
             throw new BadRequestException("Host cannot answer questions");
