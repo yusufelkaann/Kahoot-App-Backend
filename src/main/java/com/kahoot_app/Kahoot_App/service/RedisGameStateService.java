@@ -8,10 +8,13 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import com.kahoot_app.Kahoot_App.enums.RoomStatus;
-import com.kahoot_app.Kahoot_App.repository.GameSessionStateStore;
+import com.kahoot_app.Kahoot_App.repository.AnswerStore;
+import com.kahoot_app.Kahoot_App.repository.GameStatusStore;
+import com.kahoot_app.Kahoot_App.repository.QuestionTimerStore;
+import com.kahoot_app.Kahoot_App.repository.ScoreStore;
 
 @Service
-public class RedisGameStateService implements GameSessionStateStore {
+public class RedisGameStateService implements GameStatusStore, ScoreStore, AnswerStore, QuestionTimerStore {
     
     private final RedisTemplate<String, Object> redisTemplate;
 
