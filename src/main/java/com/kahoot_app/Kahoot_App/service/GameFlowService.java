@@ -1,5 +1,6 @@
 package com.kahoot_app.Kahoot_App.service;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -9,6 +10,8 @@ import com.kahoot_app.Kahoot_App.entity.Quiz;
 import com.kahoot_app.Kahoot_App.entity.Room;
 import com.kahoot_app.Kahoot_App.enums.PlayerRole;
 import com.kahoot_app.Kahoot_App.enums.RoomStatus;
+import com.kahoot_app.Kahoot_App.events.GameFinishedEvent;
+import com.kahoot_app.Kahoot_App.events.QuestionAdvancedEvent;
 import com.kahoot_app.Kahoot_App.global.exceptions.BadRequestException;
 import com.kahoot_app.Kahoot_App.global.exceptions.NotFoundException;
 import com.kahoot_app.Kahoot_App.repository.GameStatusStore;
@@ -22,22 +25,19 @@ public class GameFlowService {
     private final RoomRepository roomRepository;
     private final GameStatusStore gameStatusStore;
     private final QuestionTimerStore questionTimerStore;
-    private final GameTimerService gameTimerService;
-    private final GameWebSocketService webSocketService;
     private final ScoringService scoringService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public GameFlowService(RoomRepository roomRepository,
             GameStatusStore gameStatusStore,
             QuestionTimerStore questionTimerStore,
-            GameTimerService gameTimerService,
-            GameWebSocketService webSocketService,
-            ScoringService scoringService) {
+            ScoringService scoringService,
+            ApplicationEventPublisher eventPublisher) {
         this.roomRepository = roomRepository;
         this.gameStatusStore = gameStatusStore;
         this.questionTimerStore = questionTimerStore;
-        this.gameTimerService = gameTimerService;
-        this.webSocketService = webSocketService;
         this.scoringService = scoringService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -66,10 +66,8 @@ public class GameFlowService {
         int timeLimitSeconds = firstQuestion.getTimeLimitSeconds();
 
         String timerToken = questionTimerStore.generateTimerToken(roomCode, 0);
-        gameTimerService.startQuestionTimer(roomCode, 0, timerToken, timeLimitSeconds);
-
         room.setCurrentQuestionIndex(0);
-        webSocketService.broadcastQuestionAdvance(roomCode, 0);
+        eventPublisher.publishEvent(new QuestionAdvancedEvent(roomCode, 0, timerToken, timeLimitSeconds));
     }
 
     @Transactional
@@ -83,7 +81,7 @@ public class GameFlowService {
         room.setStatus(RoomStatus.FINISHED);
         gameStatusStore.setGameStatus(roomCode, RoomStatus.FINISHED);
 
-        webSocketService.broadcastGameFinished(roomCode);
+        eventPublisher.publishEvent(new GameFinishedEvent(roomCode));
         gameStatusStore.clearRoom(roomCode);
     }
 
@@ -113,10 +111,8 @@ public class GameFlowService {
         int timeLimitSeconds = nextQuestion.getTimeLimitSeconds();
         gameStatusStore.setCurrentQuestionIndex(roomCode, nextIndex);
 
-        webSocketService.broadcastQuestionAdvance(roomCode, nextIndex);
-
         String timerToken = questionTimerStore.generateTimerToken(roomCode, nextIndex);
-        gameTimerService.startQuestionTimer(roomCode, nextIndex, timerToken, timeLimitSeconds);
+        eventPublisher.publishEvent(new QuestionAdvancedEvent(roomCode, nextIndex, timerToken, timeLimitSeconds));
     }
 
     @Transactional
@@ -144,10 +140,8 @@ public class GameFlowService {
         int timeLimitSeconds = nextQuestion.getTimeLimitSeconds();
         gameStatusStore.setCurrentQuestionIndex(roomCode, nextIndex);
 
-        webSocketService.broadcastQuestionAdvance(roomCode, nextIndex);
-
         String timerToken = questionTimerStore.generateTimerToken(roomCode, nextIndex);
-        gameTimerService.startQuestionTimer(roomCode, nextIndex, timerToken, timeLimitSeconds);
+        eventPublisher.publishEvent(new QuestionAdvancedEvent(roomCode, nextIndex, timerToken, timeLimitSeconds));
     }
 
     @Transactional(readOnly = true)
