@@ -3,6 +3,9 @@ package com.kahoot_app.Kahoot_App.controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.kahoot_app.Kahoot_App.dto.GenerateQuizRequestDTO;
 import com.kahoot_app.Kahoot_App.dto.QuizRequestDTO;
 import com.kahoot_app.Kahoot_App.dto.QuizResponseDTO;
@@ -26,6 +29,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 
 @RestController
 @RequestMapping("/api/v1/quizzes")
+@Tag(name = "Quiz Controller", description = "APIs for managing quizzes")
 public class QuizController {
 
     private final QuizService quizService;
@@ -38,22 +42,26 @@ public class QuizController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Create a new quiz", description = "Creates a new quiz with questions and answer options")
     public QuizResponseDTO createQuiz(@Valid @RequestBody QuizRequestDTO request) {
         return quizService.createQuiz(request);
     }
 
     @GetMapping
+    @Operation(summary = "Get all quizzes", description = "Retrieves a list of all available quizzes")
     public List<QuizResponseDTO> getAllQuizzes() {
         return quizService.getAllQuizzes();
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get quiz by ID", description = "Retrieves a specific quiz by its ID")
     public QuizResponseDTO getQuizById(@PathVariable Long id) {
         return quizService.getQuizById(id);
     }
 
     @PostMapping("/generate")
     @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Generate quiz with AI", description = "Generates a new quiz using AI based on the provided topic")
     public QuizResponseDTO generateQuiz(@Valid @RequestBody GenerateQuizRequestDTO request) {
         return aiQuizService.generateQuiz(request);
     }
@@ -61,6 +69,7 @@ public class QuizController {
     // Delete endpoint
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Delete quiz", description = "Deletes a quiz by its ID")
     public void deleteQuiz(@PathVariable Long id) {
         quizService.deleteQuiz(id);
     }
